@@ -23,6 +23,7 @@ if __name__ == "__main__":
         mydump.export_dbs([db], sql_file)
         print(f'---------------------------------------------> 成功 从{source.db_host}导出: {db}')
 
+    for db in databases:
         # 导入uat
         print(f'---------------------------------------------> 导入{target.db_host}: {db}')
         myimport = MyImport(target)
