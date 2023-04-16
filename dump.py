@@ -1,8 +1,11 @@
 import platform
 from subprocess import Popen, PIPE, STDOUT
 
+out_put_encoding = 'utf-8'
+
 if platform.system() == 'Windows':
     exe_path = 'win/x64'
+    out_put_encoding = 'gbk'
 elif platform.system() == 'Linux':
     raise BaseException('暂不支持')
 elif platform.system() == 'Darwin':
@@ -21,7 +24,7 @@ class Shell(object):
         process = Popen(command, stdout=PIPE, stderr=STDOUT, shell=True)
         with process.stdout:
             for line in iter(process.stdout.readline, b''):
-                print(line.decode().strip())
+                print(line.decode(out_put_encoding).strip())
         exitcode = process.wait()
         if exitcode != 0:
             raise BaseException('命令执行失败')
