@@ -11,7 +11,6 @@ if __name__ == "__main__":
     target = Mysql(config.get('target', 'db_host'), config.get('target', 'db_port'), config.get('target', 'db_user'),
                    config.get('target', 'db_pass'))
     databases = config.get('global', 'databases').split(',')
-    ignore_tables = config.get('global', 'ignore_tables').split(',')
     dump_folder = 'dumps'
     if not os.path.exists(dump_folder):
         os.makedirs(dump_folder)
@@ -20,7 +19,7 @@ if __name__ == "__main__":
 
         # 导出生产rds01库
         print(f'---------------------------------------------> 从{source.db_host}导出: {db}')
-        mydump = MyDump(source, ignore_tables)
+        mydump = MyDump(source)
         mydump.export_dbs([db], sql_file)
         print(f'---------------------------------------------> 成功 从{source.db_host}导出: {db}')
 
