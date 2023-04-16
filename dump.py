@@ -1,11 +1,15 @@
+import os
 import platform
 from subprocess import Popen, PIPE, STDOUT
 
 out_put_encoding = 'utf-8'
-
+mysqlpump_exe = 'mysqlpump'
+mysql_exe = 'mysql'
 if platform.system() == 'Windows':
-    exe_path = 'win/x64'
+    exe_path = 'win\x64'
     out_put_encoding = 'gbk'
+    mysqldump_exe = 'mysqlpump.exe'
+    mysql_exe = 'mysql.exe'
 elif platform.system() == 'Linux':
     raise BaseException('暂不支持')
 elif platform.system() == 'Darwin':
@@ -58,7 +62,7 @@ class MyDump(Shell):
         :return:
         """
         # https://www.cnblogs.com/kevingrace/p/9760185.html
-        export_shell = f'''mysql-client/{exe_path}/mysqlpump \
+        export_shell = f'''{os.path.join('mysql-client', exe_path, mysqlpump_exe)} \
             -h {self.mysql.db_host} \
             -u {self.mysql.db_user} \
             -p{self.mysql.db_pass} \
@@ -96,5 +100,5 @@ class MyImport(Shell):
         :param sql_file: sql文件路径
         :return:
         """
-        import_shell = f'mysql-client/{exe_path}/mysql -v --host={self.mysql.db_host} --user={self.mysql.db_user} --password={self.mysql.db_pass} --port={self.mysql.db_port} --max_allowed_packet=1048576 --net_buffer_length=4096 < {sql_file}'
+        import_shell = f'{os.path.join("mysql-client", exe_path, mysqlpump_exe)} -v --host={self.mysql.db_host} --user={self.mysql.db_user} --password={self.mysql.db_pass} --port={self.mysql.db_port} --max_allowed_packet=1048576 --net_buffer_length=4096 < {sql_file}'
         self._exe_command(import_shell)
