@@ -6,7 +6,7 @@ out_put_encoding = 'utf-8'
 mysqlpump_exe = 'mysqlpump'
 mysql_exe = 'mysql'
 if platform.system() == 'Windows':
-    exe_path = 'win\x64'
+    exe_path = 'win\\x64'
     out_put_encoding = 'gbk'
     mysqldump_exe = 'mysqlpump.exe'
     mysql_exe = 'mysql.exe'
