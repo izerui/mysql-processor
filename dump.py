@@ -71,6 +71,7 @@ class MyDump(Shell):
             --skip-triggers \
             --skip-add-locks \
             --skip-events \
+            --exclude-views \
             --add-drop-database \
             --complete-insert \
             --compress \
