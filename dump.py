@@ -48,9 +48,12 @@ class MyDump(Shell):
     导出数据库备份到sql文件
     """
 
-    def __init__(self, mysql: Mysql):
+    def __init__(self, mysql: Mysql, ignore_tables: list):
         super().__init__()
         self.mysql = mysql
+        self.ignore_tables = ignore_tables
+        if not self.ignore_tables:
+            self.ignore_tables = ['non_existent_table']
 
     def export_dbs(self, databases, dump_file):
         """
@@ -71,6 +74,7 @@ class MyDump(Shell):
             --skip-triggers \
             --skip-add-locks \
             --skip-events \
+            --exclude-tables={",".join(self.ignore_tables)} \
             --skip-definer \
             --add-drop-database \
             --complete-insert \
