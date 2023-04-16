@@ -22,3 +22,6 @@ db_pass=***
 ```python
 python main.py
 ```
+
+建议:
+> 在进行同步之前，最好把目标库的binlog先关闭
