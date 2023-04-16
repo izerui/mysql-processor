@@ -2,12 +2,10 @@ import os
 import platform
 from subprocess import Popen, PIPE, STDOUT
 
-out_put_encoding = 'utf-8'
 mysqlpump_exe = 'mysqlpump'
 mysql_exe = 'mysql'
 if platform.system() == 'Windows':
     exe_path = 'win\\x64'
-    out_put_encoding = 'gbk'
     mysqldump_exe = 'mysqlpump.exe'
     mysql_exe = 'mysql.exe'
 elif platform.system() == 'Linux':
@@ -28,7 +26,7 @@ class Shell(object):
         process = Popen(command, stdout=PIPE, stderr=STDOUT, shell=True)
         with process.stdout:
             for line in iter(process.stdout.readline, b''):
-                print(line.decode(out_put_encoding).strip())
+                print(line.decode().strip())
         exitcode = process.wait()
         if exitcode != 0:
             raise BaseException('命令执行失败')
