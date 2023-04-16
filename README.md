@@ -24,4 +24,4 @@ python main.py
 ```
 
 建议:
-> 在进行同步之前，最好把目标库的binlog先关闭
+> 在进行同步之前，最好把目标库的binlog先关闭, windows 下请修改区域与语言设置，选中统一使用unicode编码
