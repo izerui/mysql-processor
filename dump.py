@@ -100,5 +100,5 @@ class MyImport(Shell):
         :param sql_file: sql文件路径
         :return:
         """
-        import_shell = f'{os.path.join("mysql-client", exe_path, mysqlpump_exe)} -v --host={self.mysql.db_host} --user={self.mysql.db_user} --password={self.mysql.db_pass} --port={self.mysql.db_port} --max_allowed_packet=1048576 --net_buffer_length=4096 < {sql_file}'
+        import_shell = f'{os.path.join("mysql-client", exe_path, mysql_exe)} -v --host={self.mysql.db_host} --user={self.mysql.db_user} --password={self.mysql.db_pass} --port={self.mysql.db_port} --max_allowed_packet=1048576 --net_buffer_length=4096 < {sql_file}'
         self._exe_command(import_shell)
