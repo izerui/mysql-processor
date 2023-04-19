@@ -1,6 +1,8 @@
-# mysql 导出导入
+# mysql-processor
+mysql备份导出、导入
 
-在根目录下创建 config.ini:
+## 运行
+1. 在根目录下创建 config.ini:
 类似:
 ```ini
 [global]
@@ -18,7 +20,7 @@ db_port=3306
 db_user=***
 db_pass=***
 ```
-然后运行:
+2. 然后运行:
 ```python
 python main.py
 ```
