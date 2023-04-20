@@ -29,7 +29,7 @@ class Shell(object):
                 print(line.decode().strip())
         exitcode = process.wait()
         if exitcode != 0:
-            raise BaseException('命令执行失败')
+            print('错误: 命令执行失败, 继续下一条... ')
         return process, exitcode
 
 
