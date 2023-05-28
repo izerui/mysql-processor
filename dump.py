@@ -89,19 +89,17 @@ class MyImport(Shell):
     从sql文件导入
     """
 
-    def __init__(self, mysql: Mysql):
+    def __init__(self, mysql: Mysql, max_allowed_packet, net_buffer_length):
         super().__init__()
         self.mysql = mysql
+        self.max_allowed_packet = max_allowed_packet
+        self.net_buffer_length = net_buffer_length
 
     def import_sql(self, sql_file):
         """
-        读取sql文件并导入到mysql中, 请先确认目标库参数值范围,然后进行相应的调优:
-        mysql>show variables like 'max_allowed_packet';
-        mysql>show variables like 'net_buffer_length';
+        读取sql文件并导入到mysql中
         :param sql_file: sql文件路径
         :return:
         """
-        max_allowed_packet = 67108864
-        net_buffer_length = 16384
-        import_shell = f'{os.path.join("mysql-client", exe_path, mysql_exe)} -v --host={self.mysql.db_host} --user={self.mysql.db_user} --password={self.mysql.db_pass} --port={self.mysql.db_port} --default-character-set=utf8 --max_allowed_packet={max_allowed_packet} --net_buffer_length={net_buffer_length} < {sql_file}'
+        import_shell = f'{os.path.join("mysql-client", exe_path, mysql_exe)} -v --host={self.mysql.db_host} --user={self.mysql.db_user} --password={self.mysql.db_pass} --port={self.mysql.db_port} --default-character-set=utf8 --max_allowed_packet={self.max_allowed_packet} --net_buffer_length={self.net_buffer_length} < {sql_file}'
         self._exe_command(import_shell)

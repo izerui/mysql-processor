@@ -10,6 +10,9 @@ if __name__ == "__main__":
                    config.get('source', 'db_pass'))
     target = Mysql(config.get('target', 'db_host'), config.get('target', 'db_port'), config.get('target', 'db_user'),
                    config.get('target', 'db_pass'))
+    import_max_allowed_packet = config.get('global', 'import_max_allowed_packet')
+    import_net_buffer_length = config.get('global', 'import_net_buffer_length')
+
     databases = config.get('global', 'databases').split(',')
     dump_folder = 'dumps'
     if not os.path.exists(dump_folder):
@@ -27,7 +30,7 @@ if __name__ == "__main__":
         sql_file = f'{dump_folder}/{db}.sql'
         # 导入uat
         print(f'---------------------------------------------> 导入{target.db_host}: {db}')
-        myimport = MyImport(target)
+        myimport = MyImport(target, import_max_allowed_packet, import_net_buffer_length)
         myimport.import_sql(sql_file)
         print(f'---------------------------------------------> 成功 导入{target.db_host}: {db}')
 
