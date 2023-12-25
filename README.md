@@ -25,7 +25,14 @@ db_port=3306
 db_user=***
 db_pass=***
 ```
-2. 然后运行:
+
+2. 目标mysql授权
+```
+GRANT SESSION_VARIABLES_ADMIN ON *.* TO admin@'%';
+GRANT SYSTEM_VARIABLES_ADMIN ON *.* TO admin@'%';
+```
+
+3. 然后运行:
 ```python
 python main.py
 ```
