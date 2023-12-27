@@ -10,7 +10,7 @@ databases=bboss,billing,cloud_finance,cloud_sale,crm,customer_supply
 # 请先确认目标库参数值范围,然后进行相应的调优:
 # mysql>show variables like 'max_allowed_packet';
 # mysql>show variables like 'net_buffer_length';
-import_max_allowed_packet=67108864
+import_max_allowed_packet=134217728
 import_net_buffer_length=16384
 
 [source]
