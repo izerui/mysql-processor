@@ -111,6 +111,38 @@ class MyDump(Shell):
                 --databases {' '.join(databases)} > {dump_file}'''
             self._exe_command(export_shell)
 
+    def export_tables(self, database, tables, dump_file):
+        """
+        导出数据库到dump_sql
+        :param database: 数据库
+        :param tables: 数据表列表
+        :param dump_file: dump_sql文件路径
+        :return:
+        """
+        # https://www.cnblogs.com/kevingrace/p/9760185.html
+        export_shell = f'''{os.path.join('mysql-client', exe_path, mysqlpump_exe)} \
+            -h {self.mysql.db_host} \
+            -u {self.mysql.db_user} \
+            -p{self.mysql.db_pass} \
+            --port={self.mysql.db_port} \
+            --default-character-set=utf8 \
+            --set-gtid-purged=OFF \
+            --skip-routines \
+            --skip-triggers \
+            --skip-add-locks \
+            --skip-events \
+            --skip-definer \
+            --add-drop-database \
+            --complete-insert \
+            --compress \
+            --skip-tz-utc \
+            --max_allowed_packet=10240 \
+            --net_buffer_length=4096 \
+            --default-parallelism=6 \
+            --watch-progress \
+            {database} {' '.join(tables)} \
+            > {dump_file}'''
+        self._exe_command(export_shell)
 
 class MyImport(Shell):
     """
