@@ -3,10 +3,12 @@ import platform
 from subprocess import Popen, PIPE, STDOUT
 
 mysqlpump_exe = 'mysqlpump'
+mysqldump_exe = 'mysqldump'
 mysql_exe = 'mysql'
 if platform.system() == 'Windows':
     exe_path = 'win\\x64'
     mysqldump_exe = 'mysqlpump.exe'
+    mysqlpump_exe = 'mysqlpump.exe'
     mysql_exe = 'mysql.exe'
 elif platform.system() == 'Linux':
     raise BaseException('暂不支持')
@@ -55,7 +57,7 @@ class MyDump(Shell):
         super().__init__()
         self.mysql = mysql
 
-    def export_dbs(self, databases, dump_file):
+    def export_dbs(self, databases, dump_file, use_pump: bool = False):
         """
         导出数据库到dump_sql
         :param databases: 数据库列表
@@ -63,28 +65,51 @@ class MyDump(Shell):
         :return:
         """
         # https://www.cnblogs.com/kevingrace/p/9760185.html
-        export_shell = f'''{os.path.join('mysql-client', exe_path, mysqlpump_exe)} \
-            -h {self.mysql.db_host} \
-            -u {self.mysql.db_user} \
-            -p{self.mysql.db_pass} \
-            --port={self.mysql.db_port} \
-            --default-character-set=utf8 \
-            --set-gtid-purged=OFF \
-            --skip-routines \
-            --skip-triggers \
-            --skip-add-locks \
-            --skip-events \
-            --skip-definer \
-            --add-drop-database \
-            --complete-insert \
-            --compress \
-            --skip-tz-utc \
-            --max_allowed_packet=10240 \
-            --net_buffer_length=4096 \
-            --default-parallelism=6 \
-            --watch-progress \
-            --databases {' '.join(databases)} > {dump_file}'''
-        self._exe_command(export_shell)
+        if use_pump:
+            export_shell = f'''{os.path.join('mysql-client', exe_path, mysqlpump_exe)} \
+                        -h {self.mysql.db_host} \
+                        -u {self.mysql.db_user} \
+                        -p{self.mysql.db_pass} \
+                        --port={self.mysql.db_port} \
+                        --default-character-set=utf8 \
+                        --set-gtid-purged=OFF \
+                        --skip-routines \
+                        --skip-triggers \
+                        --skip-add-locks \
+                        --skip-events \
+                        --skip-definer \
+                        --add-drop-database \
+                        --complete-insert \
+                        --compress \
+                        --skip-tz-utc \
+                        --max_allowed_packet=10240 \
+                        --net_buffer_length=4096 \
+                        --default-parallelism=6 \
+                        --watch-progress \
+                        --databases {' '.join(databases)} > {dump_file}'''
+        else:
+            export_shell = f'''{os.path.join('mysql-client', exe_path, 'mysqldump')} \
+                -h {self.mysql.db_host} \
+                -u {self.mysql.db_user} \
+                -p{self.mysql.db_pass} \
+                --port={self.mysql.db_port} \
+                --default-character-set=utf8 \
+                --set-gtid-purged=OFF \
+                --skip-routines \
+                --skip-triggers \
+                --skip-add-locks \
+                --skip-disable-keys \
+                --skip-events \
+                --skip-set-charset \
+                --compact \
+                --add-drop-database \
+                --complete-insert \
+                --compress \
+                --skip-tz-utc \
+                --max_allowed_packet=256M \
+                --net_buffer_length=16384 \
+                --databases {' '.join(databases)} > {dump_file}'''
+            self._exe_command(export_shell)
 
 
 class MyImport(Shell):

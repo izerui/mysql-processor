@@ -4,3 +4,5 @@ build/
 dumps/
 config.ini
 *.log
+.idea/
+config.ini
