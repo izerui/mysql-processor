@@ -1,19 +1,11 @@
+# -*- coding: utf-8 -*-
 import os
 import platform
 from subprocess import Popen, PIPE, STDOUT
 
-mysqlpump_exe = 'mysqlpump'
-mysqldump_exe = 'mysqldump'
+mydumper_exe = 'mydumper'
+myloader_exe = 'myloader'
 mysql_exe = 'mysql'
-if platform.system() == 'Windows':
-    exe_path = 'win\\x64'
-    mysqldump_exe = 'mysqlpump.exe'
-    mysqlpump_exe = 'mysqlpump.exe'
-    mysql_exe = 'mysql.exe'
-elif platform.system() == 'Linux':
-    raise BaseException('暂不支持')
-elif platform.system() == 'Darwin':
-    exe_path = 'mac/arm64'
 
 
 class Shell(object):
@@ -50,116 +42,84 @@ class Mysql:
 
 class MyDump(Shell):
     """
-    导出数据库备份到sql文件
+    使用mydumper导出数据库备份
     """
 
-    def __init__(self, mysql: Mysql):
+    def __init__(self, mysql):
         super().__init__()
         self.mysql = mysql
 
-    def export_dbs(self, databases, dump_file, use_pump: bool = False):
+    def export_dbs(self, databases, dump_dir, threads=4):
         """
-        导出数据库到dump_sql
+        使用mydumper导出数据库到指定目录
         :param databases: 数据库列表
-        :param dump_file: dump_sql文件路径
+        :param dump_dir: 导出目录路径
+        :param threads: 并行线程数
         :return:
         """
-        # https://www.cnblogs.com/kevingrace/p/9760185.html
-        if use_pump:
-            export_shell = f'''{os.path.join('mysql-client', exe_path, mysqlpump_exe)} \
-                        -h {self.mysql.db_host} \
-                        -u {self.mysql.db_user} \
-                        -p{self.mysql.db_pass} \
-                        --port={self.mysql.db_port} \
-                        --default-character-set=utf8 \
-                        --set-gtid-purged=OFF \
-                        --skip-routines \
-                        --skip-triggers \
-                        --skip-add-locks \
-                        --skip-events \
-                        --skip-definer \
-                        --add-drop-database \
-                        --complete-insert \
-                        --compress \
-                        --skip-tz-utc \
-                        --max_allowed_packet=10240 \
-                        --net_buffer_length=4096 \
-                        --default-parallelism=6 \
-                        --watch-progress \
-                        --databases {' '.join(databases)} > {dump_file}'''
-        else:
-            export_shell = f'''{os.path.join('mysql-client', exe_path, 'mysqldump')} \
-                -h {self.mysql.db_host} \
-                -u {self.mysql.db_user} \
-                -p{self.mysql.db_pass} \
-                --port={self.mysql.db_port} \
-                --default-character-set=utf8 \
-                --set-gtid-purged=OFF \
-                --skip-routines \
-                --skip-triggers \
-                --skip-add-locks \
-                --skip-disable-keys \
-                --skip-events \
-                --skip-set-charset \
-                --compact \
-                --add-drop-database \
-                --complete-insert \
-                --compress \
-                --skip-tz-utc \
-                --max_allowed_packet=256M \
-                --net_buffer_length=16384 \
-                --databases {' '.join(databases)} > {dump_file}'''
-            self._exe_command(export_shell)
+        export_shell = f'''{mydumper_exe} \
+            --host={self.mysql.db_host} \
+            --user={self.mysql.db_user} \
+            --password={self.mysql.db_pass} \
+            --port={self.mysql.db_port} \
+            --outputdir={dump_dir} \
+            --database={' '.join(databases)} \
+            --threads={threads} \
+            --compress \
+            --build-empty-files \
+            --kill-long-queries \
+            --verbose=3'''
+        self._exe_command(export_shell)
 
-    def export_tables(self, database, tables, dump_file):
+    def export_tables(self, database, tables, dump_dir, threads=4):
         """
-        导出数据库到dump_sql
+        使用mydumper导出指定表到指定目录
         :param database: 数据库
         :param tables: 数据表列表
-        :param dump_file: dump_sql文件路径
+        :param dump_dir: 导出目录路径
+        :param threads: 并行线程数
         :return:
         """
-        # https://www.cnblogs.com/kevingrace/p/9760185.html
-        export_shell = f'''{os.path.join('mysql-client', exe_path, mysqlpump_exe)} \
-            -h {self.mysql.db_host} \
-            -u {self.mysql.db_user} \
-            -p{self.mysql.db_pass} \
+        export_shell = f'''{mydumper_exe} \
+            --host={self.mysql.db_host} \
+            --user={self.mysql.db_user} \
+            --password={self.mysql.db_pass} \
             --port={self.mysql.db_port} \
-            --default-character-set=utf8 \
-            --set-gtid-purged=OFF \
-            --skip-routines \
-            --skip-triggers \
-            --skip-add-locks \
-            --skip-events \
-            --skip-definer \
-            --add-drop-database \
-            --complete-insert \
+            --outputdir={dump_dir} \
+            --database={database} \
+            --tables={' '.join(tables)} \
+            --threads={threads} \
             --compress \
-            --skip-tz-utc \
-            --max_allowed_packet=10240 \
-            --net_buffer_length=4096 \
-            --default-parallelism=6 \
-            --watch-progress \
-            {database} {' '.join(tables)} \
-            > {dump_file}'''
+            --build-empty-files \
+            --kill-long-queries \
+            --verbose=3'''
         self._exe_command(export_shell)
+
 
 class MyImport(Shell):
     """
-    从sql文件导入
+    使用myloader导入备份数据
     """
 
-    def __init__(self, mysql: Mysql, max_allowed_packet, net_buffer_length):
+    def __init__(self, mysql):
         super().__init__()
         self.mysql = mysql
-        self.max_allowed_packet = max_allowed_packet
-        self.net_buffer_length = net_buffer_length
 
-    def import_sql(self, sql_file):
+    def import_dump(self, dump_dir, threads=4):
         """
-        读取sql文件并导入到mysql中
-        :param sql_file: sql文件路径
+        使用myloader从指定目录导入备份数据
+        :param dump_dir: mydumper导出的目录路径
+        :param threads: 并行线程数
         :return:
         """
-        import_shell = f'{os.path.join("mysql-client", exe_path, mysql_exe)} -v --host={self.mysql.db_host} --user={self.mysql.db_user} --password={self.mysql.db_pass} --port={self.mysql.db_port} --default-character-set=utf8 --max_allowed_packet={self.max_allowed_packet} --net_buffer_length={self.net_buffer_length} < {sql_file}'
+        import_shell = f'''{myloader_exe} \
+            --host={self.mysql.db_host} \
+            --user={self.mysql.db_user} \
+            --password={self.mysql.db_pass} \
+            --port={self.mysql.db_port} \
+            --directory={dump_dir} \
+            --threads={threads} \
+            --compress-protocol \
+            --verbose=3 \
+            --overwrite-tables'''
         self._exe_command(import_shell)

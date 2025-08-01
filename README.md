@@ -1,17 +1,37 @@
 # mysql-processor
-mysql备份导出、导入
+使用 mydumper/myloader 进行 MySQL 数据库备份导出、导入
+
+## 安装 mydumper
+
+### macOS (使用 Homebrew)
+```bash
+brew install mydumper
+```
+
+### Ubuntu/Debian
+```bash
+sudo apt update
+sudo apt install mydumper
+```
+
+### CentOS/RHEL
+```bash
+sudo yum install epel-release
+sudo yum install mydumper
+```
+
+### Windows
+从 [mydumper releases](https://github.com/mydumper/mydumper/releases) 下载 Windows 版本，解压后将可执行文件添加到 PATH。
 
 ## 运行
+
 1. 在根目录下创建 config.ini:
-类似:
 ```ini
 [global]
 databases=bboss,billing,cloud_finance,cloud_sale,crm,customer_supply
-# 请先确认目标库参数值范围,然后进行相应的调优:
-# mysql>show variables like 'max_allowed_packet';
-# mysql>show variables like 'net_buffer_length';
-import_max_allowed_packet=134217728
-import_net_buffer_length=16384
+# mydumper/myloader 线程配置
+export_threads=4
+import_threads=4
 
 [source]
 db_host=106.75.143.56
@@ -27,15 +47,25 @@ db_pass=***
 ```
 
 2. 目标mysql授权
-```
+```sql
 GRANT SESSION_VARIABLES_ADMIN ON *.* TO admin@'%';
 GRANT SYSTEM_VARIABLES_ADMIN ON *.* TO admin@'%';
 ```
 
 3. 然后运行:
-```python
+```bash
 python main.py
 ```
 
-建议:
-> 在进行同步之前，最好把目标库的binlog先关闭, windows 下请修改区域与语言设置，选中统一使用unicode编码
+## 注意事项
+
+- mydumper 会创建多个文件，而不是单个 SQL 文件
+- 导出目录会在导入完成后自动清理
+- 可以根据服务器性能调整 export_threads 和 import_threads 参数
+- 建议在进行大量数据同步时，先关闭目标库的 binlog 以提高性能
+
+## 性能调优
+
+- 对于大型数据库，可以增加线程数：export_threads=8, import_threads=8
+- 确保 mydumper 和 myloader 版本一致
+- 检查源和目标数据库的 max_allowed_packet 设置

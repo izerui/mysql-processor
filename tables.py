@@ -1,4 +1,6 @@
+# -*- coding: utf-8 -*-
 import os
+import shutil
 from configparser import ConfigParser
 
 from dump import MyDump, Mysql
@@ -12,12 +14,14 @@ if __name__ == "__main__":
     database = 'manufacture'
     tables = ['production_demand_material']
     dump_folder = 'dumps'
-    sql_file = f'{dump_folder}/production_demand_material.sql'
-    if not os.path.exists(dump_folder):
-        os.makedirs(dump_folder)
+    
+    # 清理旧的导出目录
+    if os.path.exists(dump_folder):
+        shutil.rmtree(dump_folder)
+    os.makedirs(dump_folder)
+    
     # 导出
     print(f'---------------------------------------------> 从{database}导出: {tables}')
     mydump = MyDump(source)
-    mydump.export_tables(database, tables, sql_file)
+    mydump.export_tables(database, tables, dump_folder, threads=4)
     print(f'---------------------------------------------> 成功 从{source.db_host}导出: {database} {tables}')
-
