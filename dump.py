@@ -98,16 +98,20 @@ class MyDump(Shell):
                 --skip-routines \
                 --skip-triggers \
                 --skip-add-locks \
-                --skip-disable-keys \
+                --disable-keys \
                 --skip-events \
                 --skip-set-charset \
                 --compact \
                 --add-drop-database \
+                --extended-insert \
                 --complete-insert \
+                --quick \
+                --skip-lock-tables \
+                --no-autocommit \
                 --compress \
                 --skip-tz-utc \
                 --max_allowed_packet=256M \
-                --net_buffer_length=16384 \
+                --net_buffer_length=65536 \
                 --databases {' '.join(databases)} > {dump_file}'''
             self._exe_command(export_shell)
 
