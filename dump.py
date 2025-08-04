@@ -82,8 +82,9 @@ class MyDump(Shell):
                         --complete-insert \
                         --compress \
                         --skip-tz-utc \
-                        --max_allowed_packet=10240 \
-                        --net_buffer_length=4096 \
+                        --max-allowed-packet=256M \
+                        --net-buffer-length=65536 \
+                        --extended-insert=5000 \
                         --default-parallelism=6 \
                         --watch-progress \
                         --databases {' '.join(databases)} > {dump_file}'''
@@ -113,7 +114,7 @@ class MyDump(Shell):
                 --max_allowed_packet=256M \
                 --net_buffer_length=65536 \
                 --databases {' '.join(databases)} > {dump_file}'''
-            self._exe_command(export_shell)
+        self._exe_command(export_shell)
 
     def export_tables(self, database, tables, dump_file):
         """
@@ -140,8 +141,9 @@ class MyDump(Shell):
             --complete-insert \
             --compress \
             --skip-tz-utc \
-            --max_allowed_packet=10240 \
-            --net_buffer_length=4096 \
+            --max-allowed-packet=256M \
+            --net-buffer-length=65536 \
+            --extended-insert=3000 \
             --default-parallelism=6 \
             --watch-progress \
             {database} {' '.join(tables)} \
