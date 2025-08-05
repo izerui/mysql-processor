@@ -50,5 +50,5 @@ spec:
     - ReadWriteOnce
   resources:
     requests:
-      storage: 100Gi
+      storage: 200Gi
   storageClassName: nfs
