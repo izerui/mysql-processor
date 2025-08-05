@@ -45,7 +45,6 @@ class MyDump(BaseShell):
             # 使用标准mysqldump命令（暂时移除pv）
             full_command = f'{cmd} > {dump_file}'
             print("正在导出数据库...")
-            print(f"工作目录: {mysqldump_bin_dir}")
 
             # 使用BaseShell的_exe_command方法执行命令
             success, exit_code, output = self._exe_command(

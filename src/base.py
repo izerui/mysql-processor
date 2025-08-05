@@ -43,7 +43,6 @@ class BaseShell(object):
         """
         # 打印实际执行的命令
         print(f"执行命令: {command}")
-        print(f"工作目录: {cwd}")
 
         try:
             import subprocess

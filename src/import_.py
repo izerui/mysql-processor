@@ -34,7 +34,6 @@ class MyImport(BaseShell):
             import_shell = f'{mysql_path} -v --host={self.mysql.db_host} --user={self.mysql.db_user} --password={self.mysql.db_pass} --port={self.mysql.db_port} --default-character-set=utf8 --max_allowed_packet={self.max_allowed_packet} --net_buffer_length={self.net_buffer_length} < {sql_file}'
 
             print(f"📥 开始导入SQL文件: {sql_file}")
-            print(f"工作目录: {mysql_bin_dir}")
 
             # 使用BaseShell的_exe_command方法执行命令
             success, exit_code, output = self._exe_command(
