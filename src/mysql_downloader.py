@@ -22,9 +22,9 @@ class MySQLDownloader:
 
     # MySQL 8.0.43 官方下载地址
     DOWNLOAD_URLS = {
-        'linux': 'https://cdn.mysql.com//Downloads/MySQL-8.0/mysql-8.0.43-linux-glibc2.28-x86_64.tar.xz',
-        'darwin': 'https://cdn.mysql.com//Downloads/MySQL-8.0/mysql-8.0.43-macos15-arm64.tar.gz',
-        'windows': 'https://cdn.mysql.com//Downloads/MySQL-8.0/mysql-8.0.43-winx64.zip'
+        'linux': 'https://cdn.mysql.com/Downloads/MySQL-8.0/mysql-8.0.43-linux-glibc2.28-x86_64.tar.xz',
+        'darwin': 'https://cdn.mysql.com/Downloads/MySQL-8.0/mysql-8.0.43-macos15-arm64.tar.gz',
+        'windows': 'https://cdn.mysql.com/Downloads/MySQL-8.0/mysql-8.0.43-winx64.zip'
     }
 
     # 平台映射
