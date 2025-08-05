@@ -33,9 +33,6 @@ spec:
                 requests:
                   memory: "512Mi"
                   cpu: "250m"
-                limits:
-                  memory: "2Gi"
-                  cpu: "1000m"
           volumes:
             - name: config
               configMap:
@@ -54,5 +51,5 @@ spec:
     - ReadWriteOnce
   resources:
     requests:
-      storage: 200Gi
+      storage: 100Gi
   storageClassName: nfs

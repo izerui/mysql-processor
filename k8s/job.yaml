@@ -5,7 +5,7 @@ metadata:
   namespace: platform-yunji
   labels:
     app: mysql-processor
-+    type: manual-job
+    type: manual-job
 spec:
   template:
     metadata:
@@ -32,9 +32,6 @@ spec:
             requests:
               memory: "512Mi"
               cpu: "250m"
-            limits:
-              memory: "2Gi"
-              cpu: "1000m"
       volumes:
         - name: config
           configMap:
@@ -53,5 +50,5 @@ spec:
     - ReadWriteOnce
   resources:
     requests:
-      storage: 200Gi
+      storage: 100Gi
   storageClassName: nfs
