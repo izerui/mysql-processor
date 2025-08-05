@@ -210,12 +210,19 @@ class MySQLDownloader:
                 logger.error("未找到 MySQL bin 目录")
                 return False
 
-            # 清理旧的 MySQL 目录
+            # 清理旧的 MySQL 目录内容（不删除目录本身）
             if self.mysql_dir.exists():
-                shutil.rmtree(self.mysql_dir)
+                for item in self.mysql_dir.iterdir():
+                    if item.is_file():
+                        item.unlink()
+                    elif item.is_dir():
+                        shutil.rmtree(item)
+            else:
+                self.mysql_dir.mkdir(exist_ok=True)
 
-            # 移动 MySQL 目录到项目根目录
-            shutil.move(str(mysql_extract_dir), str(self.mysql_dir))
+            # 将解压目录中的内容移动到 mysql 目录
+            for item in mysql_extract_dir.iterdir():
+                shutil.move(str(item), str(self.mysql_dir))
 
             # 清理临时文件
             archive_path.unlink(missing_ok=True)
