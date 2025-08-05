@@ -1,0 +1,42 @@
+[project]
+name = "mysql-processor"
+version = "0.1.0"
+description = "MySQL数据库备份导出导入工具"
+authors = [
+    {name = "Your Name", email = "your.email@example.com"}
+]
+readme = "README.md"
+requires-python = ">=3.8"
+dependencies = [
+    "configparser>=5.0.0",
+    "requests>=2.25.0",
+    "tqdm>=4.60.0",
+]
+
+[project.scripts]
+mysql-processor = "src.main:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+
+
+[tool.uv]
+dev-dependencies = [
+    "pytest>=7.0.0",
+    "black>=22.0.0",
+    "isort>=5.0.0",
+    "flake8>=4.0.0",
+]
+
+[tool.black]
+line-length = 120
+target-version = ['py38']
+
+[tool.isort]
+profile = "black"
+multi_line_output = 3
