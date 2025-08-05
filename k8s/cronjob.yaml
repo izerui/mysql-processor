@@ -54,5 +54,5 @@ spec:
     - ReadWriteOnce
   resources:
     requests:
-      storage: 10Gi
-  storageClassName: ssd
+      storage: 200Gi
+  storageClassName: nfs
