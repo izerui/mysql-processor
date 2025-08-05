@@ -1,18 +1,7 @@
 import os
 import sys
-import logging
-
 from base import BaseShell, Mysql
-
-# 配置日志
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.StreamHandler(sys.stdout)
-    ]
-)
-logger = logging.getLogger(__name__)
+from logger_config import logger
 
 
 class MyRestore(BaseShell):

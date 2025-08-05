@@ -16,12 +16,15 @@ RUN pip install uv
 # 设置环境变量
 ENV PYTHONPATH=/app
 ENV PYTHONUNBUFFERED=1
+ENV PYTHONIOENCODING=utf-8
+ENV LOG_LEVEL=INFO
 
 # 复制项目文件
 COPY pyproject.toml .
 COPY src/ ./src/
 COPY config.ini.sample ./config.ini
 COPY README.md .
+COPY test_logging.py .
 
 # 使用 uv 安装依赖
 RUN uv pip install --system -e .
