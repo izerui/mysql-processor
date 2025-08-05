@@ -24,6 +24,7 @@ COPY pyproject.toml .
 COPY src/ ./src/
 COPY config.ini.sample ./config.ini
 COPY README.md .
+COPY watch_dumps_live.sh .
 
 # 使用 uv 安装依赖
 RUN uv pip install --system -e .
