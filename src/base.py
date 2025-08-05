@@ -1,6 +1,7 @@
 import os
 import platform
 import sys
+from pathlib import Path
 
 
 class BaseShell(object):
@@ -33,6 +34,36 @@ class BaseShell(object):
         mysql_path = self._get_mysql_client_path()
         mysql_exe = 'mysql.exe' if platform.system() == 'Windows' else 'mysql'
         return os.path.join(mysql_path, 'bin', mysql_exe)
+
+    def _get_mydumper_exe(self):
+        """获取mydumper可执行文件完整路径"""
+        import shutil
+        # 优先使用系统安装的版本
+        system_path = shutil.which('mydumper')
+        if system_path:
+            return system_path
+
+        # 回退到项目目录
+        project_root = Path(__file__).parent.parent
+        mydumper_dir = project_root / "mydumper"
+        mydumper_exe = 'mydumper.exe' if platform.system() == 'Windows' else 'mydumper'
+        mydumper_path = mydumper_dir / mydumper_exe
+        return str(mydumper_path)
+
+    def _get_myloader_exe(self):
+        """获取myloader可执行文件完整路径"""
+        import shutil
+        # 优先使用系统安装的版本
+        system_path = shutil.which('myloader')
+        if system_path:
+            return system_path
+
+        # 回退到项目目录
+        project_root = Path(__file__).parent.parent
+        mydumper_dir = project_root / "mydumper"
+        myloader_exe = 'myloader.exe' if platform.system() == 'Windows' else 'myloader'
+        myloader_path = mydumper_dir / myloader_exe
+        return str(myloader_path)
 
     def _exe_command(self, command, cwd=None):
         """

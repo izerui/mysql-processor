@@ -3,51 +3,46 @@
 
 import os
 import sys
+import shutil
 from pathlib import Path
 from configparser import ConfigParser
 
-from dump import MyDump
-from restore import MyRestore
+from mydumper import MyDumper
+from myloader import MyLoader
 from base import Mysql
 
 
 
-# 导入MySQL下载器
+# 导入MyDumper安装器
 try:
-    from mysql_downloader import MySQLDownloader
+    from mydumper_downloader import MyDumperDownloader
 except ImportError:
-    from mysql_downloader import MySQLDownloader
+    from mydumper_downloader import MyDumperDownloader
 
 
-def ensure_mysql_installed():
-    """确保MySQL工具已安装"""
-    downloader = MySQLDownloader()
+def ensure_mydumper_installed():
+    """确保MyDumper工具已安装"""
+    downloader = MyDumperDownloader()
 
-    if not downloader.is_mysql_installed():
-        print("🔍 MySQL工具未找到，正在自动下载...")
-        if not downloader.setup_mysql_tools():
-            print("❌ MySQL工具下载失败，请手动安装或检查网络连接")
+    if not downloader.is_mydumper_installed():
+        print("🔍 MyDumper工具未找到，正在自动安装...")
+        if not downloader.setup_mydumper_tools():
+            print("❌ MyDumper工具安装失败，请手动安装或检查网络连接")
             sys.exit(1)
-        print("✅ MySQL工具下载完成")
+        print("✅ MyDumper工具安装完成")
 
-    mysqldump_path = downloader.get_mysqldump_path()
-    mysql_dir = downloader.mysql_dir
+    mydumper_path = downloader.get_mydumper_path()
+    myloader_path = downloader.get_myloader_path()
 
-    # 设置环境变量，让子进程能找到MySQL工具
-    mysql_bin_path = str(mysql_dir / 'bin')
-    if 'PATH' not in os.environ:
-        os.environ['PATH'] = mysql_bin_path
-    elif mysql_bin_path not in os.environ['PATH']:
-        os.environ['PATH'] = f"{mysql_bin_path}:{os.environ['PATH']}"
-
-    return mysqldump_path
+    return mydumper_path, myloader_path
 
 
 def main():
     """主函数：执行MySQL数据库备份导出导入流程"""
-    # 确保MySQL工具已安装
-    mysqldump_path = ensure_mysql_installed()
-    print(f"📍 使用 mysqldump: {mysqldump_path}")
+    # 确保MyDumper工具已安装
+    mydumper_path, myloader_path = ensure_mydumper_installed()
+    print(f"📍 使用 mydumper: {mydumper_path}")
+    print(f"📍 使用 myloader: {myloader_path}")
 
     config = ConfigParser()
     config_path = Path(__file__).parent.parent / 'config.ini'
@@ -71,38 +66,58 @@ def main():
 def _export_databases(source, databases, dump_folder):
     """导出所有数据库"""
     for db in databases:
-        sql_file = f'{dump_folder}/{db}.sql'
+        db_output_dir = f'{dump_folder}/{db}'
         print(f'---------------------------------------------> 从{source.db_host}导出: {db}')
         try:
-            exporter = MyDump(source)
-            exporter.export_dbs([db], sql_file)
+            exporter = MyDumper(source)
+            exporter.export_database(
+                db,
+                db_output_dir,
+                threads=8,
+                rows=500000,
+                chunk_filesize=256,
+                no_lock=True
+            )
             print(f'---------------------------------------------> 成功 从{source.db_host}导出: {db}')
         except RuntimeError as e:
             print(f'---------------------------------------------> 导出失败: {str(e)}')
-            _safe_remove(sql_file)
+            _safe_remove(db_output_dir)
 
 
 def _import_databases(target, databases, dump_folder, max_packet, buffer_len):
     """导入所有数据库"""
     for db in databases:
-        sql_file = f'{dump_folder}/{db}.sql'
+        db_input_dir = f'{dump_folder}/{db}'
         print(f'---------------------------------------------> 导入{target.db_host}: {db}')
         try:
-            MyRestore(target, max_packet, buffer_len).restore_db(sql_file)
-            print(f'---------------------------------------------> 成功 导入{target.db_host}: {db}')
-            _safe_remove(sql_file, keep_on_error=False)
+            loader = MyLoader(target, max_packet, buffer_len)
+            if loader.validate_backup(db_input_dir):
+                loader.import_database(
+                    db_input_dir,
+                    db,
+                    threads=8
+                )
+                print(f'---------------------------------------------> 成功 导入{target.db_host}: {db}')
+                _safe_remove(db_input_dir, keep_on_error=False)
+            else:
+                raise RuntimeError("备份验证失败")
         except RuntimeError as e:
             print(f'---------------------------------------------> 导入失败: {str(e)}')
-            print(f'--------------------------------------------->> 保留文件用于调试: {sql_file}')
+            print(f'--------------------------------------------->> 保留文件用于调试: {db_input_dir}')
 
 
 def _safe_remove(path, keep_on_error=True):
-    """安全删除文件"""
+    """安全删除文件或目录"""
     if not os.path.exists(path):
         return
+
     try:
-        os.remove(path)
-        msg = '删除失败的临时文件' if keep_on_error else '成功删除'
+        if os.path.isdir(path):
+            shutil.rmtree(path)
+            msg = '删除失败的临时目录' if keep_on_error else '成功删除'
+        else:
+            os.remove(path)
+            msg = '删除失败的临时文件' if keep_on_error else '成功删除'
         print(f'--------------------------------------------->> {msg}: {path}')
     except Exception as e:
         print(f'--------------------------------------------->> 删除文件失败: {str(e)}')
