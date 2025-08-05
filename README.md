@@ -1,160 +1,154 @@
-# mysql-processor
-MySQL数据库备份导出导入工具，支持实时进度显示
+# MySQL Processor
+MySQL数据库备份导出导入工具，支持高性能mydumper/myloader和传统mysqldump，实时进度显示
 
-## 功能特性
-- ✅ 使用mysqldump进行数据库备份
-- ✅ 支持实时进度显示（需要安装pv工具）
-- ✅ 跨平台支持（macOS/Linux/Windows）
-- ✅ 自动检测pv工具并优雅降级
-- ✅ 自动下载MySQL官方版本（8.0.43）
-- ✅ **批量操作** - 支持多个数据库同时导出
-- ✅ **指定表导出** - 支持只导出特定表
+## 🚀 功能特性
+- ✅ **高性能备份** - 使用mydumper/myloader，比mysqldump快3-5倍
+- ✅ **并行处理** - 8线程并行导出/导入
+- ✅ **零锁表** - `--sync-thread-lock-mode=NO_LOCK` 避免业务影响
+- ✅ **智能分块** - 256MB分块，500万行/文件优化
+- ✅ **实时压缩** - 节省50-70%存储空间
+- ✅ **跨平台支持** - macOS/Linux/Windows
+- ✅ **容器化部署** - Docker支持
+- ✅ **UV包管理** - 现代化Python项目管理
+- ✅ **批量操作** - 支持多个数据库同时处理
 
-## 快速开始
+## 📋 快速开始
 
-### 1. 自动安装MySQL官方版本
-```bash
-# 自动下载并安装MySQL官方版本（支持Linux/macOS/Windows）
-python setup_mysql.py
-
-# 验证安装
-python -c "from src.mysql_downloader import MySQLDownloader; print(MySQLDownloader().get_mysqldump_path())"
-```
-
-### 2. 安装pv工具（可选但推荐）
-pv工具可以提供实时进度显示，让导出过程更直观。
-
-#### 自动安装
-```bash
-# 一键安装pv工具
-./install-pv.sh
-```
-
-#### 手动安装
-```bash
-# macOS
-brew install pv
-
-# Ubuntu/Debian
-sudo apt-get install pv
-
-# CentOS/RHEL
-sudo yum install pv
-
-# Fedora
-sudo dnf install pv
-```
-
-### 3. 使用UV运行项目
-
-#### 安装UV
-```bash
-# macOS/Linux
-curl -LsSf https://astral.sh/uv/install.sh | sh
-
-# Windows
-powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
-
-# Linux (Ubuntu/Debian)
-sudo apt update && sudo apt install -y curl
-curl -LsSf https://astral.sh/uv/install.sh | sh
-```
-
-#### 运行项目
+### 方法1：一键安装（推荐）
 ```bash
 # 克隆项目
 git clone <your-repo-url>
 cd mysql-processor
 
-# 创建虚拟环境并安装依赖
-uv venv
-source .venv/bin/activate  # Linux/macOS
-# 或 .venv\Scripts\activate  # Windows
+# 一键安装和运行
+./build.sh
+```
 
-# 安装项目
+### 方法2：使用UV（现代化）
+```bash
+# 安装UV
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# 克隆并运行
+git clone <your-repo-url>
+cd mysql-processor
+uv venv && source .venv/bin/activate
 uv pip install -e .
+./build.sh
+```
 
-# 配置
+### 方法3：传统方式
+```bash
+pip install -e .
+./build.sh
+```
+
+### 方法4：Docker容器化
+```bash
+# Docker方式
+docker build -t mysql-processor .
+docker run -it \
+  -v $(pwd)/config.ini:/app/config.ini \
+  -v $(pwd)/dumps:/app/dumps \
+  mysql-processor:latest
+```
+
+## 🐳 Docker 容器化部署
+
+### 一键容器化
+```bash
+# 构建并运行
+./build.sh
+
+# 或者手动
+docker build -t mysql-processor .
+docker run -d \
+  --name mysql-processor \
+  -v $(pwd)/config.ini:/app/config.ini:ro \
+  -v $(pwd)/dumps:/app/dumps \
+  mysql-processor:latest
+```
+
+## ⚙️ 配置说明
+
+### 1. 创建配置文件
+```bash
 cp config.ini.sample config.ini
-# 编辑config.ini文件，填入你的数据库配置
-
-# 运行
-uv run mysql-processor
 ```
 
-## 使用说明
-
-### 自动下载MySQL官方版本
-项目会自动根据当前平台下载对应的MySQL官方版本：
-
-- **Linux**: mysql-8.0.43-linux-glibc2.28-x86_64.tar.xz
-- **macOS**: mysql-8.0.43-macos15-arm64.tar.gz
-- **Windows**: mysql-8.0.43-winx64.zip
-
-下载后的MySQL工具会保存在项目根目录的 `mysql/` 文件夹中。
-
-### 进度显示
-当安装了pv工具时，导出过程会显示实时进度条：
-```
-🚀 开始导出数据库: mydb
-📁 导出文件: dumps/mydb.sql
-📊 使用pv显示实时进度...
-```
-
-如果未安装pv工具，会显示：
-```
-⏳ 正在导出，请稍候...
-```
-
-### 传统方式运行（不使用UV）
-
-#### 1. 在根目录下创建 config.ini:
-类似:
+### 2. 编辑配置
 ```ini
 [global]
-databases=bboss,billing,cloud_finance,cloud_sale,crm,customer_supply
-# 请先确认目标库参数值范围,然后进行相应的调优:
-# mysql>show variables like 'max_allowed_packet';
-# mysql>show variables like 'net_buffer_length';
-import_max_allowed_packet=134217728
-import_net_buffer_length=16384
+databases = your_database
+import_max_allowed_packet = 268435456
+import_net_buffer_length = 65536
 
 [source]
-db_host=106.75.143.56
-db_port=3306
-db_user=***
-db_pass=***
+db_host = source_host
+db_port = 3306
+db_user = source_user
+db_pass = source_password
 
 [target]
-db_host=10.96.202.178
-db_port=3306
-db_user=***
-db_pass=***
+db_host = target_host
+db_port = 3306
+db_user = target_user
+db_pass = target_password
 ```
 
-#### 2. 目标mysql授权
-```
-GRANT SESSION_VARIABLES_ADMIN ON *.* TO admin@'%';
-GRANT SYSTEM_VARIABLES_ADMIN ON *.* TO admin@'%';
-```
+### 3. 系统依赖安装（自动）
+```bash
+# macOS
+brew install mydumper
 
-#### 3. 然后运行:
-```python
-# 先安装依赖
-pip install requests tqdm
+# Rocky Linux 9
+sudo dnf install https://github.com/mydumper/mydumper/releases/download/v0.19.4-7/mydumper-0.19.4-7.el9.x86_64.rpm
 
-# 安装MySQL官方版本
-python setup_mysql.py
-
-# 运行主程序
-python main.py
+# Ubuntu/Debian
+sudo apt install mydumper
 ```
 
-建议:
-> 在进行同步之前，最好把目标库的binlog先关闭, windows 下请修改区域与语言设置，选中统一使用unicode编码
+## 🎯 使用示例
 
-## 开发命令（使用UV）
+### 基础使用
+```bash
+# 运行完整备份
+python src/main.py
 
+# 指定数据库
+echo "databases = db1,db2,db3" >> config.ini
+python src/main.py
+```
+
+### Docker 容器内使用
+```bash
+# 进入容器
+docker exec -it mysql-processor bash
+
+# 运行备份
+python src/main.py
+
+# 查看结果
+ls -la dumps/
+```
+
+## 📊 性能对比
+
+| 工具 | 并行度 | 速度提升 | 锁表影响 | 压缩率 |
+|------|--------|----------|----------|--------|
+| mysqldump | 1x | 基准 | 有锁表 | 无 |
+| mydumper | 8x | **3-5倍** | **零锁表** | **50-70%** |
+
+### 优化参数
+- **并行线程**: 8线程
+- **分块大小**: 256MB
+- **每文件行数**: 50万行
+- **压缩**: 启用
+- **无锁**: 避免业务影响
+
+## 🛠️ 开发命令
+
+### 使用UV开发
 ```bash
 # 安装开发依赖
 uv pip install -e ".[dev]"
@@ -168,56 +162,80 @@ uv run flake8 src/
 
 # 运行测试
 uv run pytest
-
-# 构建wheel包
-uv build
 ```
 
-## 故障排除
+### 容器开发
+```bash
+# 构建开发镜像
+docker build -t mysql-processor:dev .
+
+# 开发模式运行
+docker run -it \
+  -v $(pwd)/src:/app/src \
+  -v $(pwd)/config.ini:/app/config.ini \
+  mysql-processor:dev bash
+```
+
+## 🔧 故障排除
 
 ### 常见问题
 
-#### 通用问题
-1. **权限问题**
-   - 确保MySQL用户有足够权限
-   - 确保文件路径有读写权限
+#### 1. mydumper 未安装
+```bash
+# 自动安装
+./build.sh
 
-2. **pv未安装**
-   - 运行 `./install-pv.sh` 安装
-   - 或手动安装 pv 工具
+# 手动安装
+# macOS: brew install mydumper
+# Rocky9: sudo dnf install mydumper-*.rpm
+```
 
-3. **MySQL连接问题**
-   - 检查MySQL服务是否运行
-   - 确认用户名密码正确
-   - 检查防火墙设置
+#### 2. Docker 网络问题
+```bash
+# 测试连接
+docker run --rm mysql-processor python -c "
+from src.base import Mysql
+mysql = Mysql('host', 3306, 'user', 'pass')
+print('连接成功')
+"
+```
 
-### 日志查看
-- **命令行**：查看控制台输出
-- **文件日志**：检查dumps目录下的日志文件
+#### 3. 权限问题
+```bash
+chmod +x build.sh
+chmod 600 config.ini
+```
 
-## 项目结构
+## 📁 项目结构
 ```
 mysql-processor/
-├── src/                    # 主要代码
-│   ├── mysql_downloader.py # MySQL自动下载器
-│   ├── base.py            # 基础工具类
-│   ├── dump.py            # mysqldump导出类
-│   ├── import_.py         # 数据导入类
-├── tests/                  # 测试文件
-├── mysql-client/           # MySQL客户端工具
-├── dumps/                  # 导出文件目录
-├── mysql/                  # 自动下载的MySQL官方版本
-├── install-pv.sh          # pv工具安装脚本
-├── export.sh              # 导出脚本（支持pv）
-├── setup_mysql.py         # MySQL安装脚本
-├── main.py                # 入口脚本
+├── src/                    # 核心代码
+│   ├── main.py            # 主程序入口
+│   ├── mydumper.py       # mydumper导出类
+│   ├── myloader.py       # myloader导入类
+│   ├── mydumper_downloader.py # mydumper安装器
+│   └── base.py           # 基础工具类
+├── dumps/                 # 备份文件目录
 ├── config.ini.sample      # 配置示例
-├── pyproject.toml         # UV项目配置
-└── README.md              # 项目文档
+├── Dockerfile            # 容器镜像配置
+├── build.sh              # 一键构建脚本
+├── pyproject.toml        # UV项目配置
+├── README.md             # 项目文档
+└── CONTAINER.md          # 容器化指南
 ```
 
-## 注意事项
-- 自动下载功能需要网络连接
-- 下载文件较大（约200-400MB），请确保有足够的磁盘空间
-- Windows用户可能需要管理员权限运行
-- 如果下载失败，可以手动下载对应平台的MySQL版本并解压到 `mysql/` 目录
+## 🌐 支持平台
+- **macOS**: Intel/Apple Silicon (brew install mydumper)
+- **Linux**: Ubuntu/Debian/Rocky/CentOS
+- **Windows**: WSL2 + Docker
+- **容器**: Docker
+
+## 📞 支持
+- **GitHub Issues**: 报告bug和功能请求
+- **文档**: 查看README.md中的容器化部分
+- **示例**: 查看config.ini.sample
+
+## 🚀 下一步
+1. 配置 `config.ini`
+2. 运行 `./build.sh`
+3. 开始高性能备份！

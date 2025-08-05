@@ -1,19 +1,19 @@
 [global]
-databases=platform_wx_mp
-# 请先确认目标库参数值范围,然后进行相应的调优:
-# mysql>show variables like 'max_allowed_packet';
-# mysql>show variables like 'net_buffer_length';
-import_max_allowed_packet=67108864
-import_net_buffer_length=16384
+databases = p3
+tables = *
+import_max_allowed_packet = 268435456
+import_net_buffer_length = 65536
 
 [source]
-db_host=161.111.137.213
-db_port=3306
-db_user=cdc
-db_pass=123456
+db_host = 161.189.137.xxx
+db_port = 3306
+db_user = cdc_user
+db_pass = xxxx
+#db_user = admin
+#db_pass = lSKC.zGzl^RhLTqw
 
 [target]
-db_host=118.222.83.110
-db_port=3306
-db_user=business
-db_pass=123456
+db_host = 118.145.88.xxx
+db_port = 3306
+db_user = root
+db_pass = root

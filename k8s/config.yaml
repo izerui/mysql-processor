@@ -1,0 +1,24 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mysql-processor-config
+  namespace: platform-yunji
+data:
+  config.ini: |
+    [global]
+    databases = your_database_name
+    tables = *
+    import_max_allowed_packet = 268435456
+    import_net_buffer_length = 65536
+
+    [source]
+    db_host = source-mysql-host
+    db_port = 3306
+    db_user = source_user
+    db_pass = source_password
+
+    [target]
+    db_host = target-mysql-host
+    db_port = 3306
+    db_user = target_user
+    db_pass = target_password

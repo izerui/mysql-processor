@@ -1,42 +1,56 @@
 [project]
 name = "mysql-processor"
 version = "0.1.0"
-description = "MySQL数据库备份导出导入工具"
+description = "MySQL数据库备份导出导入工具 - 使用mydumper/myloader高性能方案"
 authors = [
-    {name = "Your Name", email = "your.email@example.com"}
+    {name = "MySQL Processor Team", email = "team@example.com"}
 ]
 readme = "README.md"
-requires-python = ">=3.8"
+requires-python = ">=3.12"
 dependencies = [
-    "configparser>=5.0.0",
-    "requests>=2.25.0",
-    "tqdm>=4.60.0",
+    "requests>=2.31.0",
+    "tqdm>=4.66.0",
+    "configparser>=5.3.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.0",
+    "black>=23.0.0",
+    "isort>=5.12.0",
+    "flake8>=6.0.0",
 ]
 
 [project.scripts]
 mysql-processor = "src.main:main"
-
-[tool.hatch.build.targets.wheel]
-packages = ["src"]
+mysql-dump = "src.mydumper:main"
+mysql-restore = "src.myloader:main"
 
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
-
+[tool.hatch.build.targets.wheel]
+packages = ["src"]
 
 [tool.uv]
 dev-dependencies = [
-    "pytest>=7.0.0",
-    "black>=22.0.0",
-    "isort>=5.0.0",
-    "flake8>=4.0.0",
+    "pytest>=7.4.0",
+    "black>=23.0.0",
+    "isort>=5.12.0",
+    "flake8>=6.0.0",
 ]
 
 [tool.black]
 line-length = 120
-target-version = ['py38']
+target-version = ['py312']
 
 [tool.isort]
 profile = "black"
 multi_line_output = 3
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = "test_*.py"
+python_classes = "Test*"
+python_functions = "test_*"

@@ -1,0 +1,57 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: mysql-processor-job
+  namespace: platform-yunji
+  labels:
+    app: mysql-processor
++    type: manual-job
+spec:
+  template:
+    metadata:
+      labels:
+        app: mysql-processor
+        type: manual-job
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: mysql-processor
+          image: izerui/mysql-processor:latest
+          imagePullPolicy: Always
+          env:
+            - name: PYTHONUNBUFFERED
+              value: "1"
+          volumeMounts:
+            - name: config
+              mountPath: /app/config.ini
+              subPath: config.ini
+              readOnly: true
+            - name: dumps
+              mountPath: /app/dumps
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "250m"
+            limits:
+              memory: "2Gi"
+              cpu: "1000m"
+      volumes:
+        - name: config
+          configMap:
+            name: mysql-processor-config
+        - name: dumps
+          persistentVolumeClaim:
+            claimName: mysql-processor-pvc
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mysql-processor-pvc
+  namespace: platform-yunji
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+  storageClassName: ssd
