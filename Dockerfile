@@ -10,18 +10,21 @@ RUN apt-get update && apt-get install -y \
     libssl-dev \
     && rm -rf /var/lib/apt/lists/*
 
+# 创建应用目录
+RUN mkdir -p /app
+
 # 安装 uv
 RUN curl -LsSf https://astral.sh/uv/install.sh | sh
 ENV PATH="/root/.local/bin:$PATH"
-RUN uv --version
 
 # 复制项目文件
 COPY pyproject.toml .
 COPY src/ ./src/
 COPY config.ini.sample ./config.ini
+COPY README.md .
 
-# 使用 uv 安装依赖
-RUN uv pip install --system -e .
+# 使用 pip 安装依赖（避免uv构建问题）
+RUN pip install -e .
 
 # 设置环境变量
 ENV PYTHONPATH=/app
