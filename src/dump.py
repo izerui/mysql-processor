@@ -1,9 +1,8 @@
 import os
 import shutil
-import subprocess
 import sys
 
-from base import BaseShell, Mysql
+from src.base import BaseShell, Mysql
 
 
 class MyDump(BaseShell):
@@ -46,31 +45,21 @@ class MyDump(BaseShell):
             # 使用标准mysqldump命令（暂时移除pv）
             full_command = f'{cmd} > {dump_file}'
             print("正在导出数据库...")
+            print(f"工作目录: {mysqldump_bin_dir}")
 
-            print(f"执行命令: {full_command}")
-
-            # 执行命令，在mysqldump的bin目录下运行
-            result = subprocess.run(
+            # 使用BaseShell的_exe_command方法执行命令
+            success, exit_code, output = self._exe_command(
                 full_command,
-                shell=True,
-                capture_output=True,
-                text=True,
-                timeout=3600,
                 cwd=mysqldump_bin_dir
             )
 
-            if result.returncode != 0:
-                error_msg = f"mysqldump导出失败，exit code: {result.returncode}"
-                if result.stderr:
-                    error_msg += f"\n错误详情: {result.stderr.strip()}"
-                if result.stdout:
-                    error_msg += f"\n输出信息: {result.stdout.strip()}"
-                raise RuntimeError(error_msg)
+            if not success:
+                raise RuntimeError(f"mysqldump导出失败，exit code: {exit_code}")
 
             print('✅ 命令执行成功')
             return True
 
-        except subprocess.TimeoutExpired:
-            raise RuntimeError("导出超时（超过1小时）")
+        except RuntimeError as e:
+            raise e
         except Exception as e:
             raise RuntimeError(f"导出过程发生错误: {str(e)}")

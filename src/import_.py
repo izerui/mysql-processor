@@ -1,8 +1,7 @@
 import os
-import subprocess
 import sys
 
-from base import BaseShell, Mysql
+from src.base import BaseShell, Mysql
 
 
 class MyImport(BaseShell):
@@ -35,36 +34,27 @@ class MyImport(BaseShell):
             import_shell = f'{mysql_path} -v --host={self.mysql.db_host} --user={self.mysql.db_user} --password={self.mysql.db_pass} --port={self.mysql.db_port} --default-character-set=utf8 --max_allowed_packet={self.max_allowed_packet} --net_buffer_length={self.net_buffer_length} < {sql_file}'
 
             print(f"📥 开始导入SQL文件: {sql_file}")
-            print(f"执行命令: {import_shell}")
+            print(f"工作目录: {mysql_bin_dir}")
 
-            # 执行命令，在mysql的bin目录下运行
-            result = subprocess.run(
+            # 使用BaseShell的_exe_command方法执行命令
+            success, exit_code, output = self._exe_command(
                 import_shell,
-                shell=True,
-                capture_output=True,
-                text=True,
                 timeout=3600,
                 cwd=mysql_bin_dir
             )
 
-            if result.stdout:
-                print("📊 导入输出:")
-                for line in result.stdout.splitlines():
-                    if line.strip():
-                        print(f"  {line}")
+            # 显示输出
+            for line in output:
+                if line.strip():
+                    print(f"  {line}")
 
-            if result.returncode != 0:
-                error_msg = f"MySQL导入失败，exit code: {result.returncode}"
-                if result.stderr:
-                    error_msg += f"\n错误详情: {result.stderr.strip()}"
-                if result.stdout:
-                    error_msg += f"\n输出信息: {result.stdout.strip()}"
-                raise RuntimeError(error_msg)
+            if not success:
+                raise RuntimeError(f"MySQL导入失败，exit code: {exit_code}")
 
             print('✅ SQL文件导入成功')
             return True
 
-        except subprocess.TimeoutExpired:
-            raise RuntimeError("导入超时（超过1小时）")
+        except RuntimeError as e:
+            raise e
         except Exception as e:
             raise RuntimeError(f"导入过程发生错误: {str(e)}")

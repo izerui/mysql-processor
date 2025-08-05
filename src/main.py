@@ -6,9 +6,9 @@ import sys
 from pathlib import Path
 from configparser import ConfigParser
 
-from dump import MyDump
-from import_ import MyImport
-from base import Mysql
+from src.dump import MyDump
+from src.import_ import MyImport
+from src.base import Mysql
 
 # 添加项目根目录到Python路径
 project_root = Path(__file__).parent.parent
