@@ -4,7 +4,7 @@ import sys
 from src.base import BaseShell, Mysql
 
 
-class MyImport(BaseShell):
+class MyRestore(BaseShell):
     """
     从SQL文件导入到MySQL数据库
     """
@@ -15,11 +15,12 @@ class MyImport(BaseShell):
         self.max_allowed_packet = max_allowed_packet
         self.net_buffer_length = net_buffer_length
 
-    def import_sql(self, sql_file):
+    def restore_db(self, sql_file, target_database=None):
         """
-        读取SQL文件并导入到MySQL中
+        从SQL文件导入到MySQL数据库
         :param sql_file: SQL文件路径
-        :return:
+        :param target_database: 目标数据库名（可选）
+        :return: bool 成功返回True，失败返回False
         """
         try:
             if not os.path.exists(sql_file):
@@ -30,15 +31,24 @@ class MyImport(BaseShell):
             # 获取mysql的bin目录作为工作目录
             mysql_bin_dir = os.path.dirname(mysql_path)
 
-            # 构建mysql命令，使用完整路径（暂时移除pv）
-            import_shell = f'{mysql_path} -v --host={self.mysql.db_host} --user={self.mysql.db_user} --password={self.mysql.db_pass} --port={self.mysql.db_port} --default-character-set=utf8 --max_allowed_packet={self.max_allowed_packet} --net_buffer_length={self.net_buffer_length} < {sql_file}'
+            # 构建mysql命令
+            cmd = f'{mysql_path} -h {self.mysql.db_host} -u {self.mysql.db_user} -p\'{self.mysql.db_pass}\' --port={self.mysql.db_port} --default-character-set=utf8 --max_allowed_packet={self.max_allowed_packet} --net_buffer_length={self.net_buffer_length}'
 
-            print(f"📥 开始导入SQL文件: {sql_file}")
+            # 如果指定了目标数据库
+            if target_database:
+                cmd += f' {target_database}'
+
+            # 完整的导入命令
+            import_shell = f'{cmd} < "{sql_file}"'
+
+            print("正在导入数据库...")
+            print(f"SQL文件: {sql_file}")
+            if target_database:
+                print(f"目标数据库: {target_database}")
 
             # 使用BaseShell的_exe_command方法执行命令
             success, exit_code, output = self._exe_command(
                 import_shell,
-                timeout=3600,
                 cwd=mysql_bin_dir
             )
 
@@ -50,10 +60,11 @@ class MyImport(BaseShell):
             if not success:
                 raise RuntimeError(f"MySQL导入失败，exit code: {exit_code}")
 
-            print('✅ SQL文件导入成功')
+            print('✅ 数据库导入成功')
             return True
 
         except RuntimeError as e:
             raise e
         except Exception as e:
-            raise RuntimeError(f"导入过程发生错误: {str(e)}")
+            print(f"❌ 导入过程发生错误: {str(e)}")
+            return False

@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MySQL 数据库工具</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.bootcdn.net/ajax/libs/jquery/3.7.1/jquery.js"></script>
+    <style>
+        body {
+            background-color: #f8f9fa;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 2rem 0;
+            margin-bottom: 2rem;
+        }
+        .card {
+            border: none;
+            box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+            transition: transform 0.2s;
+        }
+        .card:hover {
+            transform: translateY(-2px);
+        }
+        .progress {
+            height: 25px;
+        }
+        .log-container {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 0.375rem;
+            padding: 1rem;
+            max-height: 300px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 0.875rem;
+        }
+        .log-entry {
+            margin-bottom: 0.25rem;
+            padding: 0.25rem 0;
+        }
+        .log-success { color: #198754; }
+        .log-error { color: #dc3545; }
+        .log-info { color: #0d6efd; }
+        .log-warning { color: #fd7e14; }
+        .status-indicator {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 0.5rem;
+        }
+        .status-running { background-color: #198754; }
+        .status-stopped { background-color: #6c757d; }
+        .status-error { background-color: #dc3545; }
+        .file-path-display {
+            background-color: #f8f9fa;
+            padding: 0.5rem;
+            border-radius: 0.25rem;
+            font-family: 'Courier New', monospace;
+            font-size: 0.875rem;
+            color: #6c757d;
+        }
+    </style>
+</head>
+<body></body>
+    <div class="header">
+        <div class="container">
+            <h1 class="mb-0"><i class="fas fa-database"></i> MySQL 数据库工具</h1>
+            <p class="mb-0 mt-2">支持数据库导出和导入，实时显示进度</p>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="row">
+            <!-- 导出卡片 -->
+            <div class="col-md-6 mb-4">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="fas fa-download"></i> 数据库导出</h5>
+                    </div>
+                    <div class="card-body">
+                        <form id="exportForm">
+                            <div class="mb-3">
+                                <label class="form-label">数据库主机</label>
+                                <input type="text" class="form-control" name="host" required>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">端口</label>
+                                <input type="number" class="form-control" name="port" value="3306" required>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">用户名</label>
+                                <input type="text" class="form-control" name="user" required>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">密码</label>
+                                <input type="password" class="form-control" name="password" required>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">数据库名（多个用逗号分隔）</label>
+                                <input type="text" class="form-control" name="databases" placeholder="database1,database2" required>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">指定表（可选，多个用逗号分隔）</label>
+                                <input type="text" class="form-control" name="tables" placeholder="table1,table2">
+                                <small class="form-text text-muted">指定表时只能选择一个数据库</small>
+                            </div>
+
+                            <input type="hidden" name="output_file" value="/tmp/mysql_backup.sql">
+                            <button type="submit" class="btn btn-primary w-100">
+                                <i class="fas fa-download"></i> 开始导出
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 导入卡片 -->
+            <div class="col-md-6 mb-4">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="fas fa-upload"></i> 数据库导入</h5>
+                    </div>
+                    <div class="card-body">
+                        <form id="importForm">
+                            <div class="mb-3">
+                                <label class="form-label">数据库主机</label>
+                                <input type="text" class="form-control" name="host" required>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">端口</label>
+                                <input type="number" class="form-control" name="port" value="3306" required>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">用户名</label>
+                                <input type="text" class="form-control" name="user" required>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">密码</label>
+                                <input type="password" class="form-control" name="password" required>
+                            </div>
+
+
+                            <input type="hidden" name="input_file" value="/tmp/mysql_backup.sql">
+                            <button type="submit" class="btn btn-success w-100">
+                                <i class="fas fa-upload"></i> 开始导入
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 进度显示区域 -->
+        <div class="row" id="progressArea" style="display: none;">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">
+                            <span class="status-indicator" id="statusIndicator"></span>
+                            <span id="taskTitle">任务进度</span>
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <div class="d-flex justify-content-between">
+                                <span id="progressText">准备中...</span>
+                                <span id="fileSize">-</span>
+                            </div>
+                            <div class="progress mt-2">
+                                <div id="progressBar" class="progress-bar progress-bar-striped progress-bar-animated"
+                                     role="progressbar" style="width: 0%"></div>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">实时日志</label>
+                            <div class="log-container" id="logContainer">
+                                <div class="log-entry log-info">等待任务开始...</div>
+                            </div>
+                        </div>
+
+                        <button type="button" class="btn btn-secondary" onclick="clearProgress()">
+                            <i class="fas fa-times"></i> 关闭
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+    <script>
+        // 加载默认配置
+        let defaultConfig = {
+            source: { host: "localhost", port: 3306, user: "", pass: "" },
+            target: { host: "localhost", port: 3306, user: "", pass: "" },
+            global: { databases: "", tables: "", export_file: "/tmp/mysql_backup.sql", import_file: "/tmp/mysql_backup.sql" },
+        };
+
+        // 显示配置加载状态
+        function showConfigStatus(message, type = "info") {
+            const statusDiv = document.createElement("div");
+            statusDiv.className = `alert alert-${type} alert-dismissible fade show`;
+            statusDiv.innerHTML = `
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+            statusDiv.style.position = "fixed";
+            statusDiv.style.top = "20px";
+            statusDiv.style.right = "20px";
+            statusDiv.style.zIndex = "9999";
+            statusDiv.style.minWidth = "300px";
+            document.body.appendChild(statusDiv);
+
+            setTimeout(() => {
+                if (statusDiv.parentNode) {
+                    statusDiv.parentNode.removeChild(statusDiv);
+                }
+            }, 5000);
+        }
+
+        // 从服务器获取配置
+        fetch("/api/config")
+            .then((response) => response.json())
+            .then((config) => {
+                defaultConfig = config;
+                applyDefaultConfig();
+
+                // 显示配置来源提示
+                if (config.source.host !== "localhost" || config.source.user !== "") {
+                    showConfigStatus("已加载配置文件 config.ini 中的默认设置", "success");
+                } else {
+                    showConfigStatus("使用默认配置，可在config.ini中修改", "info");
+                }
+            })
+            .catch((error) => {
+                console.log("无法加载配置文件，使用默认配置");
+                showConfigStatus("配置文件加载失败，使用默认配置", "warning");
+                applyDefaultConfig();
+            });
+
+        function applyDefaultConfig() {
+            // 导出表单默认值
+            $('#exportForm input[name="host"]').val(defaultConfig.source.host);
+            $('#exportForm input[name="port"]').val(defaultConfig.source.port);
+            $('#exportForm input[name="user"]').val(defaultConfig.source.user);
+            $('#exportForm input[name="password"]').val(defaultConfig.source.pass);
+            $('#exportForm input[name="databases"]').val(defaultConfig.global.databases);
+            $('#exportForm input[name="tables"]').val(defaultConfig.global.tables);
+            $('#exportForm input[name="output_file"]').val(defaultConfig.global.export_file);
+
+            // 导入表单默认值
+            $('#importForm input[name="host"]').val(defaultConfig.target.host);
+            $('#importForm input[name="port"]').val(defaultConfig.target.port);
+            $('#importForm input[name="user"]').val(defaultConfig.target.user);
+            $('#importForm input[name="password"]').val(defaultConfig.target.pass);
+            $('#importForm input[name="input_file"]').val(defaultConfig.global.import_file);
+        }
+
+        // 初始化WebSocket连接
+        const socket = io();
+        let currentTaskId = null;
+
+        // 连接状态
+        socket.on("connect", function () {
+            console.log("WebSocket已连接");
+            addLog("系统", "WebSocket连接已建立", "info");
+        });
+
+        socket.on("disconnect", function () {
+            console.log("WebSocket已断开");
+            addLog("系统", "WebSocket连接已断开", "warning");
+        });
+
+        // 监听任务进度
+        socket.on("task_progress", function (data) {
+            if (data.task_id === currentTaskId) {
+                updateProgress(data);
+            }
+        });
+
+        // 导出表单提交
+        document.getElementById('exportForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            startExport();
+        });
+
+        // 导入表单提交
+        document.getElementById('importForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            startImport();
+        });
+
+        function startExport() {
+            const data = {
+                host: $('#exportForm input[name="host"]').val(),
+                port: $('#exportForm input[name="port"]').val(),
+                user: $('#exportForm input[name="user"]').val(),
+                password: $('#exportForm input[name="password"]').val(),
+                databases: $('#exportForm input[name="databases"]').val().split(',').map(d => d.trim()),
+                output_file: defaultConfig.global.export_file
+            };
+
+            const tables = $('#exportForm input[name="tables"]').val();
+            if (tables) data.tables = tables.split(',').map(t => t.trim());
+
+            showProgress("导出任务", "export");
+            addLog("导出", "正在启动导出任务...", "info");
+
+            $.ajax({
+                url: "/api/export",
+                method: "POST",
+                contentType: "application/json",
+                data: JSON.stringify(data),
+                success: function(result) {
+                    if (result.error) {
+                        addLog("导出", result.error, "error");
+                        updateProgress({ type: "error", message: result.error });
+                    } else {
+                        currentTaskId = result.task_id;
+                        addLog("导出", `任务已启动: ${result.task_id}`, "success");
+                    }
+                },
+                error: function(xhr, status, error) {
+                    addLog("导出", `启动失败: ${error}`, "error");
+                    updateProgress({ type: "error", message: error });
+                }
+            });
+        }
+
+        function startImport() {
+            const data = {
+                host: $('#importForm input[name="host"]').val(),
+                port: $('#importForm input[name="port"]').val(),
+                user: $('#importForm input[name="user"]').val(),
+                password: $('#importForm input[name="password"]').val(),
+                databases: $('#importForm input[name="databases"]').val().split(',').map(d => d.trim()),
+                input_file: defaultConfig.global.import_file
+            };
+
+            showProgress("导入任务", "import");
+            addLog("导入", "正在启动导入任务...", "info");
+
+            $.ajax({
+                url: "/api/import",
+                method: "POST",
+                contentType: "application/json",
+                data: JSON.stringify(data),
+                success: function(result) {
+                    if (result.error) {
+                        addLog("导入", result.error, "error");
+                        updateProgress({ type: "error", message: result.error });
+                    } else {
+                        currentTaskId = result.task_id;
+                        addLog("导入", `任务已启动: ${result.task_id}`, "success");
+                    }
+                },
+                error: function(xhr, status, error) {
+                    addLog("导入", `启动失败: ${error}`, "error");
+                    updateProgress({ type: "error", message: error });
+                }
+            });
+        }
+
+        function showProgress(title, type) {
+            $("#progressArea").show();
+            $("#taskTitle").text(title);
+            $("#progressText").text("准备中...");
+            $("#fileSize").text("-");
+            $("#progressBar").css("width", "0%");
+            $("#statusIndicator").attr("class", "status-indicator status-running");
+            $("#logContainer").html('<div class="log-entry log-info">等待任务开始...</div>');
+
+            // 滚动到进度区域
+            $("#progressArea")[0].scrollIntoView({ behavior: "smooth" });
+        }
+
+        function updateProgress(data) {
+            switch (data.type) {
+                case "status":
+                    $("#progressText").text(data.message);
+                    addLog("进度", data.message, "info");
+                    break;
+
+                case "file_size":
+                    $("#fileSize").text(data.size_human);
+                    break;
+
+                case "complete":
+                    $("#progressText").text(data.message);
+                    $("#progressBar").css("width", "100%").removeClass("progress-bar-animated");
+                    $("#statusIndicator").attr("class", "status-indicator status-stopped");
+                    addLog(
+                        "完成",
+                        `${data.message} (${data.file_size ? data.file_size_human : ""})`,
+                        "success"
+                    );
+                    break;
+
+                case "error":
+                    $("#progressText").text(data.message);
+                    $("#progressBar").addClass("bg-danger");
+                    $("#statusIndicator").attr("class", "status-indicator status-error");
+                    addLog("错误", data.message, "error");
+                    break;
+            }
+        }
+
+        function addLog(source, message, type) {
+            const timestamp = new Date().toLocaleTimeString();
+            const logHtml = `<div class="log-entry log-${type}"><strong>[${timestamp}] ${source}:</strong> ${message}</div>`;
+            $("#logContainer").append(logHtml).scrollTop($("#logContainer")[0].scrollHeight);
+        }
+
+        function clearProgress() {
+            $("#progressArea").hide();
+            currentTaskId = null;
+        }
+
+        // 页面加载完成后的初始化
+        $(document).ready(function () {
+            applyDefaultConfig();
+            addLog("系统", "页面加载完成，准备就绪", "info");
+        });
+    </script>
+</body>
+</html>

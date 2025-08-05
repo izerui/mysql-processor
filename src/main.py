@@ -7,12 +7,10 @@ from pathlib import Path
 from configparser import ConfigParser
 
 from src.dump import MyDump
-from src.import_ import MyImport
+from src.restore import MyRestore
 from src.base import Mysql
 
-# 添加项目根目录到Python路径
-project_root = Path(__file__).parent.parent
-sys.path.insert(0, str(project_root))
+
 
 # 导入MySQL下载器
 try:
@@ -90,7 +88,7 @@ def _import_databases(target, databases, dump_folder, max_packet, buffer_len):
         sql_file = f'{dump_folder}/{db}.sql'
         print(f'---------------------------------------------> 导入{target.db_host}: {db}')
         try:
-            MyImport(target, max_packet, buffer_len).import_sql(sql_file)
+            MyRestore(target, max_packet, buffer_len).restore_db(sql_file)
             print(f'---------------------------------------------> 成功 导入{target.db_host}: {db}')
             _safe_remove(sql_file, keep_on_error=False)
         except RuntimeError as e:
