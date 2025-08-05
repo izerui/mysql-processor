@@ -1,7 +1,7 @@
 import os
 import sys
 
-from src.base import BaseShell, Mysql
+from base import BaseShell, Mysql
 
 
 class MyRestore(BaseShell):

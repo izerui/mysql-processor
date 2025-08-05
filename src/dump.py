@@ -2,7 +2,7 @@ import os
 import shutil
 import sys
 
-from src.base import BaseShell, Mysql
+from base import BaseShell, Mysql
 
 
 class MyDump(BaseShell):

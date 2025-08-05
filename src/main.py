@@ -6,15 +6,15 @@ import sys
 from pathlib import Path
 from configparser import ConfigParser
 
-from src.dump import MyDump
-from src.restore import MyRestore
-from src.base import Mysql
+from dump import MyDump
+from restore import MyRestore
+from base import Mysql
 
 
 
 # 导入MySQL下载器
 try:
-    from src.mysql_downloader import MySQLDownloader
+    from mysql_downloader import MySQLDownloader
 except ImportError:
     from mysql_downloader import MySQLDownloader
 
