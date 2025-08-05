@@ -17,7 +17,7 @@ spec:
           restartPolicy: OnFailure
           containers:
             - name: mysql-processor
-              image: izerui/mysql-processor:latest
+              image: harbor.yunjizhizao.com/serv999/hub/izerui/mysql-processor:latest
               imagePullPolicy: Always
               env:
                 - name: PYTHONUNBUFFERED

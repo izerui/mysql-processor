@@ -16,6 +16,8 @@ import shutil
 import sys
 from tqdm import tqdm
 
+from logger_config import logger
+
 
 class MySQLDownloader:
     """MySQL 官方版本自动下载器"""
@@ -75,7 +77,7 @@ class MySQLDownloader:
             bool: 下载是否成功
         """
         try:
-            print(f"正在下载: {url}")
+            logger.info(f"正在下载: {url}")
 
             # 创建临时目录
             self.temp_dir.mkdir(exist_ok=True)
@@ -100,11 +102,11 @@ class MySQLDownloader:
                         if chunk:
                             file.write(chunk)
 
-            print(f"下载完成: {destination}")
+            logger.info(f"下载完成: {destination}")
             return True
 
         except Exception as e:
-            print(f"下载失败: {e}")
+            logger.error(f"下载失败: {e}")
             if destination.exists():
                 destination.unlink()
             return False
@@ -121,7 +123,7 @@ class MySQLDownloader:
             bool: 解压是否成功
         """
         try:
-            print(f"正在解压: {archive_path}")
+            logger.info(f"正在解压: {archive_path}")
 
             # 确保目标目录存在
             extract_to.mkdir(exist_ok=True)
@@ -144,11 +146,11 @@ class MySQLDownloader:
             else:
                 raise ValueError(f"不支持的文件格式: {archive_path.suffix}")
 
-            print(f"解压完成: {extract_to}")
+            logger.info(f"解压完成: {extract_to}")
             return True
 
         except Exception as e:
-            print(f"解压失败: {e}")
+            logger.error(f"解压失败: {e}")
             return False
 
     def find_mysql_bin_dir(self, extract_path: Path) -> Optional[Path]:
@@ -198,14 +200,14 @@ class MySQLDownloader:
             # 查找 MySQL 目录
             extracted_dirs = [d for d in self.temp_dir.iterdir() if d.is_dir() and 'mysql' in d.name.lower()]
             if not extracted_dirs:
-                print("未找到 MySQL 目录")
+                logger.error("未找到 MySQL 目录")
                 return False
 
             mysql_extract_dir = extracted_dirs[0]
             mysql_bin_dir = self.find_mysql_bin_dir(mysql_extract_dir)
 
             if not mysql_bin_dir:
-                print("未找到 MySQL bin 目录")
+                logger.error("未找到 MySQL bin 目录")
                 return False
 
             # 清理旧的 MySQL 目录
@@ -226,15 +228,15 @@ class MySQLDownloader:
                 mysqldump_path = self.mysql_dir / 'bin' / 'mysqldump'
 
             if mysqldump_path and mysqldump_path.exists():
-                print(f"MySQL 工具已安装到: {self.mysql_dir}")
-                print(f"mysqldump 路径: {mysqldump_path}")
+                logger.info(f"MySQL 工具已安装到: {self.mysql_dir}")
+                logger.info(f"mysqldump 路径: {mysqldump_path}")
                 return True
             else:
-                print("mysqldump 文件不存在")
+                logger.error("mysqldump 文件不存在")
                 return False
 
         except Exception as e:
-            print(f"设置失败: {e}")
+            logger.error(f"设置失败: {e}")
             return False
 
     def get_mysqldump_path(self) -> Optional[Path]:

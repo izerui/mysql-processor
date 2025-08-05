@@ -1,7 +1,18 @@
 import os
 import sys
+import logging
 
 from base import BaseShell, Mysql
+
+# 配置日志
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler(sys.stdout)
+    ]
+)
+logger = logging.getLogger(__name__)
 
 
 class MyRestore(BaseShell):
@@ -41,10 +52,10 @@ class MyRestore(BaseShell):
             # 完整的导入命令
             import_shell = f'{cmd} < "{sql_file}"'
 
-            print("正在导入数据库...")
-            print(f"SQL文件: {sql_file}")
+            logger.info("正在导入数据库...")
+            logger.info(f"SQL文件: {sql_file}")
             if target_database:
-                print(f"目标数据库: {target_database}")
+                logger.info(f"目标数据库: {target_database}")
 
             # 使用BaseShell的_exe_command方法执行命令
             success, exit_code, output = self._exe_command(
@@ -55,16 +66,16 @@ class MyRestore(BaseShell):
             # 显示输出
             for line in output:
                 if line.strip():
-                    print(f"  {line}")
+                    logger.info(f"  {line}")
 
             if not success:
                 raise RuntimeError(f"MySQL导入失败，exit code: {exit_code}")
 
-            print('✅ 数据库导入成功')
+            logger.info('✅ 数据库导入成功')
             return True
 
         except RuntimeError as e:
             raise e
         except Exception as e:
-            print(f"❌ 导入过程发生错误: {str(e)}")
+            logger.error(f"❌ 导入过程发生错误: {str(e)}")
             return False

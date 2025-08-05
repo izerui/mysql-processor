@@ -3,6 +3,7 @@ import shutil
 import sys
 
 from base import BaseShell, Mysql
+from logger_config import logger
 
 
 class MyDump(BaseShell):
@@ -49,7 +50,7 @@ class MyDump(BaseShell):
 
             # 使用标准mysqldump命令（暂时移除pv）
             full_command = f'{cmd} > {dump_file}'
-            print("正在导出数据库...")
+            logger.info("正在导出数据库...")
 
             # 使用BaseShell的_exe_command方法执行命令
             success, exit_code, output = self._exe_command(
@@ -60,7 +61,7 @@ class MyDump(BaseShell):
             if not success:
                 raise RuntimeError(f"mysqldump导出失败，exit code: {exit_code}")
 
-            print('✅ 命令执行成功')
+            logger.info('✅ 命令执行成功')
             return True
 
         except RuntimeError as e:

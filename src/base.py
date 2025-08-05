@@ -1,6 +1,17 @@
 import os
 import platform
 import sys
+import logging
+
+# 配置日志
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler(sys.stdout)
+    ]
+)
+logger = logging.getLogger(__name__)
 
 
 class BaseShell(object):
@@ -41,8 +52,8 @@ class BaseShell(object):
         :param cwd: 工作目录
         :return: (success: bool, exit_code: int, output: list)
         """
-        # 打印实际执行的命令
-        print(f"执行命令: {command}")
+        # 记录实际执行的命令
+        logger.info(f"执行命令: {command}")
 
         try:
             import subprocess
@@ -62,24 +73,24 @@ class BaseShell(object):
             # 实时输出（只输出非空行）
             for line in output_lines:
                 if line.strip():
-                    print(f"  {line}")
+                    logger.info(f"  {line}")
 
             for line in error_lines:
                 if line.strip():
-                    print(f"  ❌ {line}", file=sys.stderr)
+                    logger.error(f"  ❌ {line}")
 
             exitcode = process.returncode
             all_output = output_lines + error_lines
 
             if exitcode == 0:
-                print('✅ 命令执行成功')
+                logger.info('✅ 命令执行成功')
                 return True, exitcode, all_output
             else:
-                print(f'❌ 命令执行失败 (exit code: {exitcode})')
+                logger.error(f'❌ 命令执行失败 (exit code: {exitcode})')
                 return False, exitcode, all_output
 
         except Exception as e:
-            print(f'🚨 执行命令时发生异常: {str(e)}')
+            logger.error(f'🚨 执行命令时发生异常: {str(e)}')
             return False, -1, [str(e)]
 
 
