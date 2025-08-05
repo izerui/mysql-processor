@@ -27,22 +27,24 @@ spec:
                   mountPath: /app/config.ini
                   subPath: config.ini
                   readOnly: true
-                - name: dumps
+                - name: shared-storage
                   mountPath: /app/dumps
-                - name: mysql-tools
+                  subPath: dumps
+                - name: shared-storage
                   mountPath: /app/mysql
+                  subPath: mysql
               resources:
                 requests:
                   memory: "512Mi"
                   cpu: "250m"
+                limits:
+                  memory: "2Gi"
+                  cpu: "1000m"
           volumes:
             - name: config
               configMap:
                 name: mysql-processor-config
-            - name: dumps
-              persistentVolumeClaim:
-                claimName: mysql-processor-pvc
-            - name: mysql-tools
+            - name: shared-storage
               persistentVolumeClaim:
                 claimName: mysql-processor-pvc
 ---
@@ -56,5 +58,5 @@ spec:
     - ReadWriteOnce
   resources:
     requests:
-      storage: 200Gi
-  storageClassName: nfs
+      storage: 10Gi
+  storageClassName: ssd
