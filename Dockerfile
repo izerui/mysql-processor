@@ -13,6 +13,7 @@ RUN apt-get update && apt-get install -y \
 # 安装 uv
 RUN curl -LsSf https://astral.sh/uv/install.sh | sh
 ENV PATH="/root/.local/bin:$PATH"
+RUN uv --version
 
 # 复制项目文件
 COPY pyproject.toml .
@@ -25,10 +26,6 @@ RUN uv pip install --system -e .
 # 设置环境变量
 ENV PYTHONPATH=/app
 ENV PYTHONUNBUFFERED=1
-
-
-
-
 
 # 运行命令
 CMD ["python", "src/main.py"]
