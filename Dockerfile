@@ -10,18 +10,21 @@ RUN apt-get update && apt-get install -y \
     libssl-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# 安装Python依赖
+# 安装 uv
+RUN pip install uv
+
+# 设置环境变量
+ENV PYTHONPATH=/app
+ENV PYTHONUNBUFFERED=1
+
+# 复制项目文件
 COPY pyproject.toml .
 COPY src/ ./src/
 COPY config.ini.sample ./config.ini
 COPY README.md .
 
-# 安装项目依赖
-RUN pip install --no-cache-dir -e .
-
-# 设置环境变量
-ENV PYTHONPATH=/app
-ENV PYTHONUNBUFFERED=1
+# 使用 uv 安装依赖
+RUN uv pip install --system -e .
 
 # 运行命令
 CMD ["python", "src/main.py"]
