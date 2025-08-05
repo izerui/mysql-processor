@@ -70,6 +70,9 @@ kubectl get cronjob -n platform-yunji mysql-processor
 - **存储大小**: 默认10Gi，可在PVC中调整
 - **存储类**: 使用SSD存储类 `ssd`
 - **PVC名称**: `mysql-processor-pvc`
+- **挂载路径**:
+  - `/app/dumps` - 备份文件存储
+  - `/app/mysql` - MySQL工具和数据存储
 
 ### 资源限制
 - **内存请求**: 512Mi
@@ -115,10 +118,13 @@ kubectl get pods -n platform-yunji
 kubectl logs -n platform-yunji -l app=mysql-processor --tail=100
 ```
 
-### 查看备份文件
+### 查看存储文件
 ```bash
 # 进入运行中的Pod查看备份文件
 kubectl exec -it -n platform-yunji $(kubectl get pods -n platform-yunji --selector=job-name=mysql-processor-job --sort-by=.metadata.creationTimestamp -o jsonpath='{.items[0].metadata.name}') -- ls -la /app/dumps/
+
+# 查看MySQL工具目录
+kubectl exec -it -n platform-yunji $(kubectl get pods -n platform-yunji --selector=job-name=mysql-processor-job --sort-by=.metadata.creationTimestamp -o jsonpath='{.items[0].metadata.name}') -- ls -la /app/mysql/
 ```
 
 ## 故障排除
@@ -154,10 +160,16 @@ kubectl get configmap mysql-processor-config -o yaml -n platform-yunji
 kubectl run mysql-test -n platform-yunji --image=mysql:8.0 --rm -it --restart=Never -- mysql -h<source-host> -u<user> -p<password>
 ```
 
-## 清理资源
+# 清理资源
 ```bash
 # 删除所有资源
 kubectl delete -f k8s/ -n platform-yunji
+
+# 清理特定资源
+kubectl delete job mysql-processor-job -n platform-yunji
+kubectl delete pvc mysql-processor-pvc -n platform-yunji
+kubectl delete configmap mysql-processor-config -n platform-yunji
+```
 
 # 或者单独删除
 kubectl delete job mysql-processor-job -n platform-yunji

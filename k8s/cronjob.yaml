@@ -29,6 +29,8 @@ spec:
                   readOnly: true
                 - name: dumps
                   mountPath: /app/dumps
+                - name: mysql-tools
+                  mountPath: /app/mysql
               resources:
                 requests:
                   memory: "512Mi"
@@ -38,6 +40,9 @@ spec:
               configMap:
                 name: mysql-processor-config
             - name: dumps
+              persistentVolumeClaim:
+                claimName: mysql-processor-pvc
+            - name: mysql-tools
               persistentVolumeClaim:
                 claimName: mysql-processor-pvc
 ---
