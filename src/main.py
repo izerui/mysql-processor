@@ -65,36 +65,50 @@ def main():
     dump_folder = Path(__file__).parent.parent / 'dumps'
     dump_folder.mkdir(exist_ok=True)
 
-    _export_databases(source, databases, str(dump_folder))
-    _import_databases(target, databases, str(dump_folder), import_max_allowed_packet, import_net_buffer_length)
+    # 启动文件监控
+    try:
+        from monitor import start_global_monitor
+        start_global_monitor('mysql_export', str(dump_folder), 2)
+    except ImportError:
+        logger.warning("监控模块未找到，跳过文件监控")
 
-
-def _export_databases(source, databases, dump_folder):
-    """导出所有数据库"""
+    # 导出并导入每个数据库
     for db in databases:
         sql_file = f'{dump_folder}/{db}.sql'
+
+        # 导出数据库
         logger.info(f'---------------------------------------------> 从{source.db_host}导出: {db}')
         try:
             exporter = MyDump(source)
-            exporter.export_dbs([db], sql_file)
+            exporter.export_db(db, sql_file)
             logger.info(f'---------------------------------------------> 成功 从{source.db_host}导出: {db}')
         except RuntimeError as e:
             logger.error(f'---------------------------------------------> 导出失败: {str(e)}')
             _safe_remove(sql_file)
+            continue
 
-
-def _import_databases(target, databases, dump_folder, max_packet, buffer_len):
-    """导入所有数据库"""
-    for db in databases:
-        sql_file = f'{dump_folder}/{db}.sql'
+        # 导入数据库
         logger.info(f'---------------------------------------------> 导入{target.db_host}: {db}')
         try:
-            MyRestore(target, max_packet, buffer_len).restore_db(sql_file)
+            MyRestore(target, import_max_allowed_packet, import_net_buffer_length).restore_db(sql_file)
             logger.info(f'---------------------------------------------> 成功 导入{target.db_host}: {db}')
             _safe_remove(sql_file, keep_on_error=False)
         except RuntimeError as e:
             logger.error(f'---------------------------------------------> 导入失败: {str(e)}')
             logger.warning(f'--------------------------------------------->> 保留文件用于调试: {sql_file}')
+
+    # 程序结束前停止监控
+    try:
+        from monitor import stop_all_monitors
+        stop_all_monitors()
+    except ImportError:
+        pass
+
+
+
+
+
+
 
 
 def _safe_remove(path, keep_on_error=True):
