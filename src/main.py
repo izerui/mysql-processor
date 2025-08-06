@@ -90,7 +90,7 @@ def main():
 
             # 导入数据库
             logger.info(f'---------------------------------------------> 导入{target.db_host}: {db}')
-            MyRestore(target, import_max_allowed_packet, import_net_buffer_length).restore_db(sql_file,  db)
+            MyRestore(target, import_max_allowed_packet, import_net_buffer_length).restore_db(sql_file)
             logger.info(f'---------------------------------------------> 成功 导入{target.db_host}: {db}')
 
             # 清理SQL文件

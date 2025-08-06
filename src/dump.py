@@ -36,10 +36,10 @@ class MyDump(BaseShell):
             # 构建mysqldump命令，使用完整路径
             if tables and tables != ['*']:
                 # 指定表导出
-                cmd = f'{mysqldump_path} -h {self.mysql.db_host} -u {self.mysql.db_user} -p"{self.mysql.db_pass}" --port={self.mysql.db_port} --default-character-set=utf8 --set-gtid-purged=OFF --skip-routines --skip-triggers --skip-add-locks --disable-keys --skip-events --skip-set-charset --compact --add-drop-database --extended-insert --complete-insert --quick --skip-lock-tables --no-autocommit --compress --skip-tz-utc --max-allowed-packet=256M --net-buffer-length=65536 {database} {" ".join(tables)}'
+                cmd = f'{mysqldump_path} -h {self.mysql.db_host} -u {self.mysql.db_user} -p"{self.mysql.db_pass}" --port={self.mysql.db_port} --default-character-set=utf8 --set-gtid-purged=OFF --skip-routines --skip-triggers --skip-add-locks --disable-keys --skip-events --skip-set-charset --add-drop-database --extended-insert --complete-insert --quick --skip-lock-tables --no-autocommit --compress --skip-tz-utc --max-allowed-packet=256M --net-buffer-length=65536 --databases {database} {" ".join(tables)}'
             else:
                 # 完整数据库导出
-                cmd = f'{mysqldump_path} -h {self.mysql.db_host} -u {self.mysql.db_user} -p"{self.mysql.db_pass}" --port={self.mysql.db_port} --default-character-set=utf8 --set-gtid-purged=OFF --skip-routines --skip-triggers --skip-add-locks --disable-keys --skip-events --skip-set-charset --compact --add-drop-database --extended-insert --complete-insert --quick --skip-lock-tables --no-autocommit --compress --skip-tz-utc --max-allowed-packet=256M --net-buffer-length=65536 {database}'
+                cmd = f'{mysqldump_path} -h {self.mysql.db_host} -u {self.mysql.db_user} -p"{self.mysql.db_pass}" --port={self.mysql.db_port} --default-character-set=utf8 --set-gtid-purged=OFF --skip-routines --skip-triggers --skip-add-locks --disable-keys --skip-events --skip-set-charset --add-drop-database --extended-insert --complete-insert --quick --skip-lock-tables --no-autocommit --compress --skip-tz-utc --max-allowed-packet=256M --net-buffer-length=65536 --databases {database}'
 
             # 获取mysqldump的bin目录作为工作目录
             mysqldump_bin_dir = os.path.dirname(mysqldump_path)
