@@ -16,6 +16,13 @@ spec:
         app: mysql-processor
     spec:
       restartPolicy: Always
+      nodeSelector:
+        app-type: mysql-processor
+      tolerations:
+        - key: app-type
+          value: mysql-processor
+          operator: Equal
+          effect: NoSchedule
       containers:
         - name: mysql-processor
           image: harbor.yunjizhizao.com/serv999/hub/izerui/mysql-processor:latest
