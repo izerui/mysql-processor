@@ -87,22 +87,23 @@ def main():
             exporter = MyDump(source)
             exporter.export_db(db, sql_file, tables)
 
-            # 导入数据库
-            MyRestore(target).restore_db(sql_file)
+            # 导入数据库（使用新的分步导入方法）
+            MyRestore(target).restore_db(database=db, dump_folder=str(dump_folder))
 
             # 根据配置决定是否清理SQL文件和数据库目录
             if delete_after_import:
-                _safe_remove(sql_file, keep_on_error=False)
-                logger.info(f'🗑️ 已删除导出文件: {sql_file}')
+                # 删除数据库结构文件
+                structure_file = dump_folder / f"{db}.sql"
+                _safe_remove(str(structure_file), keep_on_error=False)
 
-                # 删除数据库同名目录
+                # 删除数据库目录
                 db_folder = dump_folder / db
                 if db_folder.exists():
                     import shutil
                     shutil.rmtree(db_folder)
-                    logger.info(f'🗑️ 已删除数据库目录: {db_folder}')
+                    logger.info(f'🗑️ 已删除数据库结构文件和目录: {db}')
             else:
-                logger.info(f'💾 保留导出文件: {sql_file}')
+                logger.info(f'💾 保留导出文件和目录: {db}')
             return {'database': db, 'status': 'success', 'error': None}
 
         except Exception as e:

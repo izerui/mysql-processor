@@ -52,9 +52,38 @@ class MyDump(BaseShell):
 
             # 第一步：导出数据库结构（仅表结构，不包含数据）
             logger.info(f"正在导出数据库结构: {database}")
-            structure_cmd = f'{mysqldump_path} -h {self.mysql.db_host} -u {self.mysql.db_user} -p"{self.mysql.db_pass}" --port={self.mysql.db_port} --default-character-set=utf8 --set-gtid-purged=OFF --skip-routines --skip-triggers --skip-add-locks --disable-keys --skip-events --skip-set-charset --add-drop-database --extended-insert --complete-insert --quick --no-autocommit --single-transaction --skip-lock-tables --no-autocommit --compress --skip-tz-utc --max-allowed-packet=256M --net-buffer-length=1048576 --no-data --databases {database}'
+            cmd = (
+                f'{mysqldump_path} '
+                f'-h {self.mysql.db_host} '
+                f'-u {self.mysql.db_user} '
+                f'-p"{self.mysql.db_pass}" '
+                f'--port={self.mysql.db_port} '
+                f'--default-character-set=utf8 '
+                f'--set-gtid-purged=OFF '
+                f'--skip-routines '
+                f'--skip-triggers '
+                f'--skip-add-locks '
+                f'--disable-keys '
+                f'--skip-events '
+                f'--skip-set-charset '
+                f'--add-drop-database '
+                f'--extended-insert '
+                f'--complete-insert '
+                f'--quick '
+                f'--no-autocommit '
+                f'--single-transaction '
+                f'--skip-lock-tables '
+                f'--no-autocommit '
+                f'--compress '
+                f'--skip-tz-utc '
+                f'--max-allowed-packet=256M '
+                f'--net-buffer-length=1048576 '
+                f'--no-data '
+                f'--skip-set-charset '
+                f'--databases {database}'
+            )
 
-            full_command = f'{structure_cmd} > {dump_file}'
+            full_command = f'{cmd} > {dump_file}'
             success, exit_code, output = self._exe_command(
                 full_command,
                 cwd=mysqldump_bin_dir
@@ -130,9 +159,37 @@ class MyDump(BaseShell):
             return []
 
     def _export_table_data(self, database, table, table_file, mysqldump_path, mysqldump_bin_dir):
-        """导出单个表的数据（仅insert语句），并按配置大小拆分大文件"""
+        """导出单个表的数据（仅insert语句），并按500MB拆分大文件"""
         try:
-            cmd = f'{mysqldump_path} -h {self.mysql.db_host} -u {self.mysql.db_user} -p"{self.mysql.db_pass}" --port={self.mysql.db_port} --default-character-set=utf8 --set-gtid-purged=OFF --skip-routines --skip-triggers --skip-add-locks --disable-keys --skip-events --skip-set-charset --extended-insert --complete-insert --quick --no-autocommit --single-transaction --skip-lock-tables --no-autocommit --compress --skip-tz-utc --max-allowed-packet=256M --net-buffer-length=1048576 --no-create-info --databases {database} --tables {table}'
+            cmd = (
+                f'{mysqldump_path} '
+                f'-h {self.mysql.db_host} '
+                f'-u {self.mysql.db_user} '
+                f'-p"{self.mysql.db_pass}" '
+                f'--port={self.mysql.db_port} '
+                f'--default-character-set=utf8 '
+                f'--set-gtid-purged=OFF '
+                f'--skip-routines '
+                f'--skip-triggers '
+                f'--skip-add-locks '
+                f'--disable-keys '
+                f'--skip-events '
+                f'--skip-set-charset '
+                f'--extended-insert '
+                f'--complete-insert '
+                f'--quick '
+                f'--no-autocommit '
+                f'--single-transaction '
+                f'--skip-lock-tables '
+                f'--no-autocommit '
+                f'--compress '
+                f'--skip-tz-utc '
+                f'--max-allowed-packet=256M '
+                f'--net-buffer-length=1048576 '
+                f'--no-create-info '
+                f'--skip-set-charset '
+                f'{database} {table}'
+            )
 
             # 先导出到临时文件
             temp_file = f"{table_file}.tmp"
@@ -164,7 +221,7 @@ class MyDump(BaseShell):
                     os.rename(temp_file, table_file)
                     logger.info(f'✅ 表数据导出成功: {database}.{table} (耗时: {duration:.2f}秒)')
             else:
-                # 空文件，创建带.sql后缀的空文件
+                # 空文件，创建空文件
                 open(table_file, 'w').close()
                 logger.info(f'✅ 表数据为空: {database}.{table} (耗时: {duration:.2f}秒)')
 
@@ -175,16 +232,17 @@ class MyDump(BaseShell):
             raise
 
     def _split_large_file(self, temp_file, base_filename, max_size):
-        """将大文件按配置大小拆分成多个文件，使用流式处理避免内存问题"""
+        """将大文件按500MB拆分成多个文件，使用流式处理避免内存问题"""
         try:
             file_number = 1
             current_size = 0
             current_file = None
-            line_buffer = []
-            buffer_size_bytes = 0
 
             # 只使用UTF-8编码
             with open(temp_file, 'r', encoding='utf-8') as f:
+                line_buffer = []
+                buffer_size_bytes = 0
+
                 for line in f:
                     line_bytes = line.encode('utf-8')
                     line_size = len(line_bytes)
@@ -203,9 +261,10 @@ class MyDump(BaseShell):
 
                         # 如果需要新文件
                         if current_file is None:
-                            # 使用新的文件名格式：表名.part001.sql
-                            filename_without_ext = os.path.splitext(base_filename)[0]
-                            current_file = open(f"{filename_without_ext}.part{file_number:03d}.sql", 'w', encoding='utf-8')
+                            # 将.sql后缀放在.partxxx之前，保持正确的文件扩展名
+                            base_name_without_ext = os.path.splitext(base_filename)[0]
+                            ext = os.path.splitext(base_filename)[1]
+                            current_file = open(f"{base_name_without_ext}.part{file_number:03d}{ext}", 'w', encoding='utf-8')
                             current_size = 0
 
                     # 添加到缓冲区
