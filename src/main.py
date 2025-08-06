@@ -90,7 +90,7 @@ def main():
 
             # 导入数据库
             logger.info(f'---------------------------------------------> 导入{target.db_host}: {db}')
-            MyRestore(target, import_max_allowed_packet, import_net_buffer_length).restore_db(sql_file)
+            MyRestore(target, import_max_allowed_packet, import_net_buffer_length).restore_db(sql_file,  db)
             logger.info(f'---------------------------------------------> 成功 导入{target.db_host}: {db}')
 
             # 清理SQL文件
@@ -99,7 +99,7 @@ def main():
 
         except Exception as e:
             logger.error(f'---------------------------------------------> 处理数据库 {db} 失败: {str(e)}')
-            _safe_remove(sql_file)
+            # _safe_remove(sql_file)
             return {'database': db, 'status': 'failed', 'error': str(e)}
 
     # 使用线程池并发处理
