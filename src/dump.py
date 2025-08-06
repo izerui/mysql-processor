@@ -80,6 +80,8 @@ class MyDump(BaseShell):
                 f'--net-buffer-length=1048576 '
                 f'--no-data '
                 f'--skip-set-charset '
+                f'--skip-comments '
+                f'--compact '
                 f'--databases {database}'
             )
 
@@ -188,6 +190,8 @@ class MyDump(BaseShell):
                 f'--net-buffer-length=1048576 '
                 f'--no-create-info '
                 f'--skip-set-charset '
+                f'--skip-comments '
+                f'--compact '
                 f'{database} {table}'
             )
 
