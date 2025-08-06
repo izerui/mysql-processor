@@ -81,22 +81,18 @@ def main():
 
         try:
             # 导出数据库
-            logger.info(f'---------------------------------------------> 从{source.db_host}导出: {db}')
             exporter = MyDump(source)
             exporter.export_db(db, sql_file, tables)
-            logger.info(f'---------------------------------------------> 成功 从{source.db_host}导出: {db}')
 
             # 导入数据库
-            logger.info(f'---------------------------------------------> 导入{target.db_host}: {db}')
             MyRestore(target).restore_db(sql_file)
-            logger.info(f'---------------------------------------------> 成功 导入{target.db_host}: {db}')
 
             # 清理SQL文件
             _safe_remove(sql_file, keep_on_error=False)
             return {'database': db, 'status': 'success', 'error': None}
 
         except Exception as e:
-            logger.error(f'---------------------------------------------> 处理数据库 {db} 失败: {str(e)}')
+            logger.error(f'❌ 处理数据库 {db} 失败: {str(e)}')
             # _safe_remove(sql_file)
             return {'database': db, 'status': 'failed', 'error': str(e)}
 
@@ -111,9 +107,9 @@ def main():
         for future in concurrent.futures.as_completed(futures):
             result = future.result()
             if result['status'] == 'failed':
-                logger.error(f'---------------------------------------------> 数据库 {result["database"]} 处理失败: {result["error"]}')
+                logger.error(f'❌ 数据库 {result["database"]} 处理失败: {result["error"]}')
             else:
-                logger.info(f'---------------------------------------------> 数据库 {result["database"]} 处理完成')
+                logger.info(f'✅ 数据库 {result["database"]} 处理完成')
 
     # 程序结束前停止监控
     try:
@@ -142,9 +138,9 @@ def _safe_remove(path, keep_on_error=True):
     try:
         os.remove(path)
         msg = '删除失败的临时文件' if keep_on_error else '成功删除'
-        logger.info(f'--------------------------------------------->> {msg}: {path}')
+        logger.info(f'✅ {msg}: {path}')
     except Exception as e:
-        logger.error(f'--------------------------------------------->> 删除文件失败: {str(e)}')
+        logger.error(f'❌ 删除文件失败: {str(e)}')
 
 
 if __name__ == "__main__":

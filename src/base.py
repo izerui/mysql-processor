@@ -74,10 +74,6 @@ class BaseShell(object):
             all_output = output_lines + error_lines
 
             if exitcode == 0:
-                if success_msg:
-                    logger.info(f'✅ {success_msg}')
-                else:
-                    logger.info('✅ 命令执行成功')
                 return True, exitcode, all_output
             else:
                 logger.error(f'❌ 命令执行失败 (exit code: {exitcode})')

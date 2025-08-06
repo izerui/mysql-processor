@@ -1,5 +1,6 @@
 import os
 import shutil
+import time
 
 from base import BaseShell, Mysql
 from logger_config import logger
@@ -48,16 +49,20 @@ class MyDump(BaseShell):
             full_command = f'{cmd} > {dump_file}'
             logger.info(f"正在导出数据库: {database}")
 
+            start_time = time.time()
+
             # 使用BaseShell的_exe_command方法执行命令
             success, exit_code, output = self._exe_command(
                 full_command,
-                cwd=mysqldump_bin_dir,
-                success_msg=f'数据库导出成功: {database}'
+                cwd=mysqldump_bin_dir
             )
+
+            duration = time.time() - start_time
 
             if not success:
                 raise RuntimeError(f"mysqldump导出失败，exit code: {exit_code}")
 
+            logger.info(f'✅ 数据库导出成功: {database} (耗时: {duration:.2f}秒)')
             return True
 
         except RuntimeError as e:

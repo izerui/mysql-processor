@@ -1,5 +1,6 @@
 import os
 import sys
+import time
 from base import BaseShell, Mysql
 from logger_config import logger
 
@@ -36,12 +37,15 @@ class MyRestore(BaseShell):
 
             logger.info(f"正在导入SQL文件: {sql_file}")
 
+            start_time = time.time()
+
             # 使用BaseShell的_exe_command方法执行命令
             success, exit_code, output = self._exe_command(
                 import_shell,
-                cwd=mysql_bin_dir,
-                success_msg=f'SQL文件导入成功: {sql_file}'
+                cwd=mysql_bin_dir
             )
+
+            duration = time.time() - start_time
 
             # 显示输出
             for line in output:
@@ -51,6 +55,7 @@ class MyRestore(BaseShell):
             if not success:
                 raise RuntimeError(f"MySQL导入失败，exit code: {exit_code}")
 
+            logger.info(f'✅ SQL文件导入成功: {sql_file} (耗时: {duration:.2f}秒)')
             return True
 
         except RuntimeError as e:
