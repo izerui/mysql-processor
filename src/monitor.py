@@ -90,7 +90,7 @@ class FileMonitor:
                             change_details.append(f"📄 {filename}: {size_mb:.2f}MB / {size_diff:+.2f}MB")
 
                     details_str = "\t\t" + "\t|\t".join(change_details) if change_details else ""
-                    logger.info(f"📊 总计: {current_count}个文件 | {current_size/1024/1024:.2f}MB | 速度: {speed_mbps:.2f}MB/s{details_str}")
+                    logger.info(f"📊 导出: {current_count}个文件 | {current_size/1024/1024:.2f}MB | 速度: {speed_mbps:.2f}MB/s{details_str}")
                 # 文件无变化时不输出日志
 
                 # 通知回调函数

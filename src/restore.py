@@ -29,13 +29,31 @@ class MyRestore(BaseShell):
             # 获取mysql的bin目录作为工作目录
             mysql_bin_dir = os.path.dirname(mysql_path)
 
-            # 构建mysql命令
-            cmd = f'{mysql_path} -h {self.mysql.db_host} -u {self.mysql.db_user} -p\'{self.mysql.db_pass}\' --port={self.mysql.db_port} --default-character-set=utf8 --max_allowed_packet=268435456 --net_buffer_length=1048576'
+            # 构建mysql命令，使用--init-command优化导入性能
+            init_commands = [
+                "SET autocommit=0",
+                "SET foreign_key_checks=0",
+                "SET unique_checks=0",
+                "SET SESSION innodb_lock_wait_timeout=3600"
+            ]
 
-            # 完整的导入命令
+            init_command_str = ";".join(init_commands)
+            cmd = (
+                f'{mysql_path} '
+                f'-h {self.mysql.db_host} '
+                f'-u {self.mysql.db_user} '
+                f'-p\'{self.mysql.db_pass}\' '
+                f'--port={self.mysql.db_port} '
+                f'--default-character-set=utf8 '
+                f'--max_allowed_packet=268435456 '
+                f'--net_buffer_length=1048576 '
+                f'--init-command="{init_command_str}"'
+            )
+
+            # 完整的导入命令，不自动恢复设置，需要手动提交
             import_shell = f'{cmd} < "{sql_file}"'
 
-            logger.info(f"正在导入SQL文件: {sql_file}")
+            logger.info(f"🔄 开始导入SQL文件: {os.path.basename(sql_file)}")
 
             start_time = time.time()
 
@@ -55,7 +73,7 @@ class MyRestore(BaseShell):
             if not success:
                 raise RuntimeError(f"MySQL导入失败，exit code: {exit_code}")
 
-            logger.info(f'✅ SQL文件导入成功: {sql_file} (耗时: {duration:.2f}秒)')
+            logger.info(f'✅ SQL文件导入成功: {os.path.basename(sql_file)} (耗时: {duration:.2f}秒)')
             return True
 
         except RuntimeError as e:

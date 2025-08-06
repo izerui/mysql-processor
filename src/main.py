@@ -108,8 +108,6 @@ def main():
             result = future.result()
             if result['status'] == 'failed':
                 logger.error(f'❌ 数据库 {result["database"]} 处理失败: {result["error"]}')
-            else:
-                logger.info(f'✅ 数据库 {result["database"]} 处理完成')
 
     # 程序结束前停止监控
     try:
@@ -137,8 +135,6 @@ def _safe_remove(path, keep_on_error=True):
         return
     try:
         os.remove(path)
-        msg = '删除失败的临时文件' if keep_on_error else '成功删除'
-        logger.info(f'✅ {msg}: {path}')
     except Exception as e:
         logger.error(f'❌ 删除文件失败: {str(e)}')
 
