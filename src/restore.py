@@ -4,6 +4,7 @@ import time
 import concurrent.futures
 from pathlib import Path
 from typing import List, Optional, Dict, Any
+from colorama import Fore
 from base import BaseShell, Mysql
 from logger_config import logger
 
@@ -80,7 +81,9 @@ class MyRestore(BaseShell):
 
             if success:
                 duration = time.time() - start_time
-                logger.success(f"数据库结构导入完成 (耗时: {duration:.2f}s)")
+                logger.info(f"\n{Fore.GREEN}   📊 数据库结构导入完成")
+                logger.info(f"{Fore.GREEN}   ⏰ 耗时: {duration:.2f}秒")
+                logger.info(f"{Fore.GREEN}   {'=' * 30}\n")
                 return True
             else:
                 return False
@@ -121,9 +124,12 @@ class MyRestore(BaseShell):
                 )
                 futures.append((sql_file, future))
 
-            # 收集结果
-            for sql_file, future in futures:
+            # 收集结果 - 使用as_completed实现异步显示
+            for future in concurrent.futures.as_completed([f for _, f in futures]):
+                sql_file = None
                 try:
+                    # 找到对应的文件名
+                    sql_file = next(f_path for f_path, f_obj in futures if f_obj == future)
                     result = future.result()
                     if result['success']:
                         success_count += 1
@@ -137,9 +143,12 @@ class MyRestore(BaseShell):
                         failed_files.append(os.path.basename(sql_file))
                         logger.error(f"文件导入失败 - 文件: {os.path.basename(sql_file)}, 错误: {result['error']}")
                 except Exception as e:
-                    failed_files.append(os.path.basename(sql_file))
-                    logger.error(f"文件导入异常 - 文件: {os.path.basename(sql_file)}, 错误: {str(e)}")
+                    if sql_file:
+                        failed_files.append(os.path.basename(sql_file))
+                    logger.error(f"文件导入异常 - 文件: {os.path.basename(sql_file) or 'unknown'}, 错误: {str(e)}")
 
+                # 更新批量进度
+                progress = (success_count + len(failed_files)) / len(data_files) * 100
                 logger.log_batch_progress(
                     "表数据导入",
                     success_count + len(failed_files),

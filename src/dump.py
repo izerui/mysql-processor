@@ -6,6 +6,8 @@ import re
 import configparser
 from typing import List, Optional
 
+from colorama import Fore
+
 from base import BaseShell, Mysql
 from logger_config import logger
 
@@ -143,7 +145,9 @@ class MyDump(BaseShell):
                 raise RuntimeError(f"数据库结构导出失败，exit code: {exit_code}")
 
             file_size = os.path.getsize(dump_file) / 1024 / 1024
-            logger.success(f"数据库结构导出完成 ({file_size:.1f}MB)")
+            logger.info(f"\n{Fore.GREEN}   📊 数据库结构导出完成")
+            logger.info(f"{Fore.GREEN}   📁 文件大小: {file_size:.1f}MB")
+            logger.info(f"{Fore.GREEN}   {'=' * 30}\n")
             return True
 
         except Exception as e:
@@ -175,9 +179,12 @@ class MyDump(BaseShell):
                 )
                 futures.append((table, future))
 
-            # 收集结果
-            for table, future in futures:
+            # 收集结果 - 使用as_completed实现异步显示
+            for future in concurrent.futures.as_completed([f for _, f in futures]):
+                table = None
                 try:
+                    # 找到对应的表名
+                    table = next(t for t, f_obj in futures if f_obj == future)
                     result = future.result()
                     if result['success']:
                         success_count += 1
@@ -188,8 +195,9 @@ class MyDump(BaseShell):
                         failed_tables.append(table)
                         logger.error(f"表导出失败 - 数据库: {database}, 表: {table}, 错误: {result['error']}")
                 except Exception as e:
-                    failed_tables.append(table)
-                    logger.error(f"表导出异常 - 数据库: {database}, 表: {table}, 错误: {str(e)}")
+                    if table:
+                        failed_tables.append(table)
+                    logger.error(f"表导出异常 - 数据库: {database}, 表: {table or 'unknown'}, 错误: {str(e)}")
 
                 # 更新批量进度
                 progress = (success_count + len(failed_tables)) / len(tables) * 100

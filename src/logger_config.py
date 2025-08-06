@@ -164,13 +164,18 @@ class StructuredLogger:
 
     def log_database_start(self, database: str, operation: str):
         """记录数据库操作开始"""
-        print(f"\n{Fore.GREEN}{'─' * 60}")
-        print(f"{Fore.GREEN}🗄️ {operation.upper()} 数据库: {Fore.YELLOW}{database}")
-        print(f"{Fore.GREEN}{'─' * 60}")
+        print(f"\n{Fore.CYAN}{'=' * 80}")
+        print(f"{Fore.CYAN} 🚀 开始{operation}数据库")
+        print(f"{Fore.CYAN} 📊 数据库: {Fore.YELLOW}{database}")
+        print(f"{Fore.CYAN}{'=' * 80}\n")
 
     def log_database_complete(self, database: str, operation: str, duration: float):
         """记录数据库操作完成"""
-        self.success(f"{operation.upper()} 完成: {database} (耗时: {duration:.2f}s)")
+        print(f"\n{Fore.GREEN}{'=' * 80}")
+        print(f"{Fore.GREEN} 🎉 {operation.upper()}完成 🎉")
+        print(f"{Fore.GREEN} 📊 数据库: {Fore.YELLOW}{database}")
+        print(f"{Fore.GREEN} ⏰ 耗时: {duration:.2f} 秒")
+        print(f"{Fore.GREEN}{'=' * 80}\n")
 
     def log_table_progress(self, database: str, table: str, progress: float,
                            current: int = 0, total: int = 0, speed: Optional[float] = None):
@@ -191,8 +196,11 @@ class StructuredLogger:
         """记录表操作完成"""
         # 清除进度条行
         print(f"\r{' ' * 100}\r", end="")
-        size_str = f" ({size_mb:.1f}MB)" if size_mb > 0 else ""
-        self.success(f"{database}.{table}{size_str} 完成 (耗时: {duration:.2f}s)")
+        size_str = f" 📊 {size_mb:.1f}MB" if size_mb > 0 else ""
+        print(f"\n{Fore.MAGENTA}   ✨ 表操作完成 ✨")
+        print(f"{Fore.MAGENTA}   🗄️ {database}.{table}")
+        print(f"{Fore.MAGENTA}   ⏰ 耗时: {duration:.2f} 秒{size_str}")
+        print(f"{Fore.MAGENTA}   {'=' * 30}\n")
 
     def log_batch_progress(self, operation: str, completed: int, total: int,
                            failed: int = 0, eta: Optional[float] = None):
@@ -214,12 +222,13 @@ class StructuredLogger:
         failed_count = len(results) - success_count
 
         print(f"\n{Fore.CYAN}{'=' * 80}")
-        print(f"{Fore.CYAN}🎉 操作完成汇总")
+        print(f"{Fore.CYAN} 🏆 所有操作完成汇总 🏆")
         print(f"{Fore.CYAN}{'=' * 80}")
-        print(f"{Fore.GREEN}✅ 成功: {success_count}")
+        print(f"{Fore.GREEN} ✅ 成功: {success_count} 个数据库")
         if failed_count > 0:
-            print(f"{Fore.RED}❌ 失败: {failed_count}")
-        print(f"{Fore.CYAN}⏰ 总耗时: {total_duration:.2f}s")
+            print(f"{Fore.RED} ❌ 失败: {failed_count} 个数据库")
+        print(f"{Fore.CYAN} ⏰ 总耗时: {total_duration:.2f} 秒")
+        print(f"{Fore.CYAN}{'=' * 80}\n")
 
         # 显示失败详情
         if failed_count > 0:
