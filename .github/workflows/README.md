@@ -13,11 +13,16 @@
 - **DOCKER_PASSWORD**: 你的 Docker Hub 密码或访问令牌
 
 ### 2. 触发条件
+### 触发条件
 
 工作流会在以下情况下自动触发：
 
-- **推送到 main/master 分支**
-- **创建 Pull Request 到 main/master 分支**
+- **推送到 main/master 分支**，且以下文件发生变更：
+  - `src/**` 目录下的任何文件
+  - `Dockerfile` 文件
+  - `pyproject.toml` 文件
+  - 工作流配置文件本身
+- **创建 Pull Request 到 main/master 分支**，且上述文件发生变更
 - **推送版本标签**（如 `v1.0.0`）
 
 ### 3. 构建结果
