@@ -3,6 +3,7 @@
 
 import os
 import sys
+import time
 from pathlib import Path
 from configparser import ConfigParser
 
@@ -123,9 +124,15 @@ def main():
     except ImportError:
         pass
 
+    # 无限等待，防止Pod重启
+    logger.info("💤 程序执行完成，进入休眠状态...")
 
-
-
+    try:
+        while True:
+            time.sleep(3600)  # 每小时检查一次
+    except KeyboardInterrupt:
+        logger.info("收到退出信号，程序结束")
+        sys.exit(0)
 
 
 
