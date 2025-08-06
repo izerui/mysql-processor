@@ -35,7 +35,7 @@ class FileMonitor:
         if not self.is_running():
             return False
         self._stop.set()
-        self._thread.join(timeout=10)
+        self._thread.join()
         self._thread = None
         logger.info("监控停止")
         return True
@@ -68,11 +68,14 @@ class FileMonitor:
 
                 if changed_files or abs(size_change) > 0.001:
                     speed_mbps = abs(size_change) / (1024.0 * 1024.0) / elapsed
+                    has_changed = True
+                else:
+                    speed_mbps = 0.0
+                    has_changed = False
 
-                    # 总览信息
-                    logger.info(f"📊 总计: {current_count}个文件 | {current_size/1024/1024:.2f}MB | 速度: {speed_mbps:.2f}MB/s")
-
-                    # 文件详情
+                if has_changed:
+                    # 构建变化详情字符串
+                    change_details = []
                     for change in changed_files:
                         filename = Path(change['path']).name
                         action = change['action']
@@ -80,13 +83,28 @@ class FileMonitor:
                         size_diff = float(change.get('size_diff', 0))
 
                         if action == '新增':
-                            logger.info(f"   📄 {filename} → 当前: {size_mb:.2f}MB | 新增: +{size_mb:.2f}MB")
+                            change_details.append(f"📄 {filename}: {size_mb:.2f}MB / +{size_mb:.2f}MB")
                         elif action == '删除':
-                            logger.info(f"   📄 {filename} → 当前: 0.00MB | 删除: -{size_mb:.2f}MB")
+                            change_details.append(f"📄 {filename}: 0.00MB / -{size_mb:.2f}MB")
                         else:  # 修改
-                            logger.info(f"   📄 {filename} → 当前: {size_mb:.2f}MB | 修改: {size_diff:+.2f}MB")
+                            change_details.append(f"📄 {filename}: {size_mb:.2f}MB / {size_diff:+.2f}MB")
+
+                    details_str = "\t\t" + "\t|\t".join(change_details) if change_details else ""
+                    logger.info(f"📊 总计: {current_count}个文件 | {current_size/1024/1024:.2f}MB | 速度: {speed_mbps:.2f}MB/s{details_str}")
                 else:
                     logger.info(f"📊 当前: {current_count}个文件, {current_size/1024/1024:.2f}MB (无变化)")
+
+                # 通知回调函数
+                info = {
+                    'total_size': current_size,
+                    'total_size_mb': current_size/1024/1024,
+                    'file_count': current_count,
+                    'time_elapsed': elapsed,
+                    'has_changed': has_changed,
+                    'speed_mbps': speed_mbps,
+                    'changed_files': changed_files
+                }
+                self._notify(info)
 
                 self._last_files = current_files
                 self._last_size = current_size
