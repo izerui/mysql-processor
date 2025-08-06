@@ -9,11 +9,9 @@ class MyRestore(BaseShell):
     从SQL文件导入到MySQL数据库
     """
 
-    def __init__(self, mysql: Mysql, max_allowed_packet: str, net_buffer_length: str):
+    def __init__(self, mysql: Mysql):
         super().__init__()
         self.mysql = mysql
-        self.max_allowed_packet = max_allowed_packet
-        self.net_buffer_length = net_buffer_length
 
     def restore_db(self, sql_file):
         """
@@ -31,7 +29,7 @@ class MyRestore(BaseShell):
             mysql_bin_dir = os.path.dirname(mysql_path)
 
             # 构建mysql命令
-            cmd = f'{mysql_path} -h {self.mysql.db_host} -u {self.mysql.db_user} -p\'{self.mysql.db_pass}\' --port={self.mysql.db_port} --default-character-set=utf8 --max_allowed_packet={self.max_allowed_packet} --net_buffer_length={self.net_buffer_length}'
+            cmd = f'{mysql_path} -h {self.mysql.db_host} -u {self.mysql.db_user} -p\'{self.mysql.db_pass}\' --port={self.mysql.db_port} --default-character-set=utf8 --max_allowed_packet=268435456 --net_buffer_length=1048576'
 
             # 完整的导入命令
             import_shell = f'{cmd} < "{sql_file}"'

@@ -1,8 +1,6 @@
 [global]
 databases = p3
 tables = *
-import_max_allowed_packet = 268435456
-import_net_buffer_length = 65536
 
 [source]
 db_host = 161.189.137.xxx

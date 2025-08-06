@@ -59,8 +59,6 @@ def main():
                    config.get('source', 'db_pass'))
     target = Mysql(config.get('target', 'db_host'), config.get('target', 'db_port'), config.get('target', 'db_user'),
                    config.get('target', 'db_pass'))
-    import_max_allowed_packet = config.get('global', 'import_max_allowed_packet')
-    import_net_buffer_length = config.get('global', 'import_net_buffer_length')
 
     databases = config.get('global', 'databases').split(',')
     tables = config.get('global', 'tables').split(',')
@@ -90,7 +88,7 @@ def main():
 
             # 导入数据库
             logger.info(f'---------------------------------------------> 导入{target.db_host}: {db}')
-            MyRestore(target, import_max_allowed_packet, import_net_buffer_length).restore_db(sql_file)
+            MyRestore(target).restore_db(sql_file)
             logger.info(f'---------------------------------------------> 成功 导入{target.db_host}: {db}')
 
             # 清理SQL文件
