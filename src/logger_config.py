@@ -77,6 +77,37 @@ class StructuredLogger:
         self.progress_trackers: Dict[str, ProgressTracker] = {}
         self.setup_logger()
 
+    def cleanup(self, path: str):
+        """记录清理操作"""
+        print(f"{Fore.YELLOW}🧹 清理: {path}")
+
+    # 兼容旧接口的方法
+    def info(self, message: str, *args, **kwargs):
+        """记录信息"""
+        print(f"{Fore.CYAN}ℹ️ {message}")
+
+    def process(self, message: str, *args, **kwargs):
+        """进度信息"""
+        print(f"{Fore.MAGENTA}📊 {message}")
+
+    def error(self, message: str, *args, **kwargs):
+        """记录错误"""
+        context = kwargs.get('context', None)
+        context_str = f" - {context}" if context else ""
+        print(f"{Fore.RED}❌ 错误: {message}{context_str}")
+
+    def warning(self, message: str, *args, **kwargs):
+        """记录警告"""
+        print(f"{Fore.YELLOW}⚠️ 警告: {message}")
+
+    def debug(self, message: str, *args, **kwargs):
+        """兼容旧logger接口"""
+        print(f"{Fore.CYAN}🐛 {str(message)}")
+
+    def success(self, message: str, *args, **kwargs):
+        """兼容旧logger接口"""
+        print(f"{Fore.GREEN}✅ {str(message)}")
+
     def setup_logger(self):
         """设置日志器"""
         if self.logger.handlers:
@@ -139,7 +170,7 @@ class StructuredLogger:
 
     def log_database_complete(self, database: str, operation: str, duration: float):
         """记录数据库操作完成"""
-        print(f"\n{Fore.GREEN}✅ {operation.upper()} 完成: {Fore.YELLOW}{database} {Fore.GREEN}(耗时: {duration:.2f}s)")
+        self.success(f"{operation.upper()} 完成: {database} (耗时: {duration:.2f}s)")
 
     def log_table_progress(self, database: str, table: str, progress: float,
                            current: int = 0, total: int = 0, speed: Optional[float] = None):
@@ -161,7 +192,7 @@ class StructuredLogger:
         # 清除进度条行
         print(f"\r{' ' * 100}\r", end="")
         size_str = f" ({size_mb:.1f}MB)" if size_mb > 0 else ""
-        print(f"{Fore.GREEN}✅ {database}.{table}{size_str} 完成 (耗时: {duration:.2f}s)")
+        self.success(f"{database}.{table}{size_str} 完成 (耗时: {duration:.2f}s)")
 
     def log_batch_progress(self, operation: str, completed: int, total: int,
                            failed: int = 0, eta: Optional[float] = None):
@@ -175,7 +206,7 @@ class StructuredLogger:
             status_parts.append(f"ETA: {eta:.0f}s")
 
         status_str = " | ".join(status_parts)
-        print(f"\n{Fore.YELLOW}📊 {operation}: {progress:.1f}% [{status_str}]")
+        self.process(f"{operation}: {progress:.1f}% [{status_str}]")
 
     def log_summary(self, results: list, total_duration: float):
         """记录操作汇总"""
@@ -196,33 +227,6 @@ class StructuredLogger:
             for result in results:
                 if result.get('status') == 'failed':
                     print(f"{Fore.RED}  - {result.get('database', 'Unknown')}: {result.get('error', 'Unknown error')}")
-
-    def cleanup(self, path: str):
-        """记录清理操作"""
-        print(f"{Fore.YELLOW}🧹 清理: {path}")
-
-    # 兼容旧接口的方法
-    def info(self, message: str, *args, **kwargs):
-        """记录信息"""
-        print(f"{Fore.CYAN}ℹ️ {message}")
-
-    def error(self, message: str, *args, **kwargs):
-        """记录错误"""
-        context = kwargs.get('context', None)
-        context_str = f" - {context}" if context else ""
-        print(f"{Fore.RED}❌ 错误: {message}{context_str}")
-
-    def warning(self, message: str, *args, **kwargs):
-        """记录警告"""
-        print(f"{Fore.YELLOW}⚠️ 警告: {message}")
-
-    def debug(self, message: str, *args, **kwargs):
-        """兼容旧logger接口"""
-        print(f"{Fore.CYAN}🐛 {str(message)}")
-
-    def success(self, message: str, *args, **kwargs):
-        """兼容旧logger接口"""
-        print(f"{Fore.GREEN}✅ {str(message)}")
 
 
 # 创建全局日志器实例

@@ -115,7 +115,7 @@ def process_single_database(db: str, tables: Optional[List[str]],
 
         # 导出阶段
         export_start = time.time()
-        logger.info(f"🔄 开始导出数据库: {db}")
+        logger.info(f"开始导出数据库: {db}")
 
         exporter = MyDump(source_mysql)
         export_success = exporter.export_db(db, str(sql_file), tables)
@@ -129,7 +129,7 @@ def process_single_database(db: str, tables: Optional[List[str]],
 
         # 导入阶段
         import_start = time.time()
-        logger.info(f"🔄 开始导入数据库: {db}")
+        logger.info(f"开始导入数据库: {db}")
 
         importer = MyRestore(target_mysql)
         import_success = importer.restore_db(db, str(dump_folder))
@@ -181,17 +181,14 @@ def main():
     cleanup_dump_folder(dump_folder)
     dump_folder.mkdir(exist_ok=True)
 
-    # 文件监控已暂时屏蔽
-    logger.info("📊 文件监控已暂时禁用")
-
     # 处理所有数据库
     results = []
     total_databases = len(config['databases'])
 
-    logger.info(f"🔄 开始处理 {total_databases} 个数据库...")
+    logger.info(f"开始处理 {total_databases} 个数据库...")
 
     for idx, db in enumerate(config['databases'], 1):
-        logger.info(f"📊 进度: {idx}/{total_databases} - 处理数据库: {db}")
+        logger.process(f"进度: {idx}/{total_databases} - 处理数据库: {db}")
 
         result = process_single_database(
             db,
@@ -206,8 +203,8 @@ def main():
 
         # 显示当前数据库处理结果
         if result['status'] == 'success':
-            logger.info(
-                f"✅ 数据库 {db} 处理完成 - 导出耗时: {result['export_duration']:.1f}s, "
+            logger.success(
+                f"数据库 {db} 处理完成 - 导出耗时: {result['export_duration']:.1f}s, "
                 f"导入耗时: {result['import_duration']:.1f}s, "
                 f"总耗时: {result['export_duration'] + result['import_duration']:.1f}s"
             )

@@ -56,7 +56,7 @@ class MyDump(BaseShell):
             mysqldump_bin_dir = os.path.dirname(mysqldump_path)
 
             # 第一步：导出数据库结构
-            logger.info(f"📊 正在导出数据库结构...")
+            logger.info(f"正在导出数据库结构...")
             structure_start = time.time()
             if not self._export_structure(database, dump_file, mysqldump_path, mysqldump_bin_dir):
                 return False
@@ -71,7 +71,7 @@ class MyDump(BaseShell):
                 return True
 
             # 第三步：导出表数据
-            logger.info(f"📊 发现 {len(tables)} 个表需要导出数据")
+            logger.info(f"发现 {len(tables)} 个表需要导出数据")
             success_count = self._export_tables_data(database, tables, dump_file, mysqldump_path, mysqldump_bin_dir)
 
             if success_count == len(tables):
@@ -132,6 +132,7 @@ class MyDump(BaseShell):
                 f'--skip-set-charset '
                 f'--skip-comments '
                 f'--compact '
+                f'--set-gtid-purged=OFF '
                 f'--databases {database}'
             )
 
@@ -155,7 +156,7 @@ class MyDump(BaseShell):
         db_folder = os.path.join(os.path.dirname(dump_file), database)
         os.makedirs(db_folder, exist_ok=True)
 
-        logger.info(f"🔄 开始并发导出表数据...")
+        logger.info(f"开始并发导出表数据...")
         export_start = time.time()
 
         success_count = 0
@@ -240,6 +241,8 @@ class MyDump(BaseShell):
                 f'--skip-set-charset '
                 f'--skip-comments '
                 f'--compact '
+                f'--set-gtid-purged=OFF '
+                f'--quick '
                 f'{database} {table}'
             )
 
@@ -315,7 +318,7 @@ class MyDump(BaseShell):
                 tables = [row[0] for row in cursor.fetchall()]
 
             connection.close()
-            logger.info(f"📊 获取表列表完成 - 数据库: {database}, 表数量: {len(tables)}")
+            logger.info(f"获取表列表完成 - 数据库: {database}, 表数量: {len(tables)}")
             return sorted(tables)
 
         except Exception as e:
@@ -391,7 +394,7 @@ class MyDump(BaseShell):
 
             # 清除进度条
             print(f"\r{' ' * 100}\r", end="")
-            logger.info(f"文件拆分完成 - 文件数: {file_number}, 总大小: {total_size/1024/1024:.1f}MB")
+            logger.success(f"文件拆分完成 - 文件数: {file_number}, 总大小: {total_size/1024/1024:.1f}MB")
 
         except Exception as e:
             logger.error(f"拆分文件时发生错误: {str(e)}")

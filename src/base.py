@@ -69,7 +69,7 @@ class BaseShell(object):
             for line in error_lines:
                 if line.strip():
                     if 'Using a password on the command' not in line:
-                        logger.warning(f"  ⚠️ {line}")
+                        logger.warning(f"{line}")
 
             exitcode = process.returncode
             all_output = output_lines + error_lines

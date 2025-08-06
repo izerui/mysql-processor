@@ -54,7 +54,7 @@ class MyRestore(BaseShell):
                 return True
 
             # 3. 并发导入表数据
-            logger.info(f"📊 开始并发导入 {len(data_files)} 个表数据文件...")
+            logger.info(f"开始并发导入 {len(data_files)} 个表数据文件...")
             success_count = self._import_tables_data(database, data_files)
 
             total_duration = time.time() - start_time
@@ -140,8 +140,6 @@ class MyRestore(BaseShell):
                     failed_files.append(os.path.basename(sql_file))
                     logger.error(f"文件导入异常 - 文件: {os.path.basename(sql_file)}, 错误: {str(e)}")
 
-                # 更新批量进度
-                progress = (success_count + len(failed_files)) / len(data_files) * 100
                 logger.log_batch_progress(
                     "表数据导入",
                     success_count + len(failed_files),
@@ -221,8 +219,43 @@ class MyRestore(BaseShell):
             duration = time.time() - start_time
 
             if success:
-                return True
+                # 导入成功后提交事务
+                commit_cmd = (
+                    f'{mysql_path} '
+                    f'-h {self.mysql.db_host} '
+                    f'-u {self.mysql.db_user} '
+                    f'-p\'{self.mysql.db_pass}\' '
+                    f'--port={self.mysql.db_port} '
+                    f'--default-character-set=utf8 '
+                    f'--execute="COMMIT; SET foreign_key_checks=1; SET unique_checks=1; SET autocommit=1;"'
+                    f' {database}'
+                )
+
+                commit_success, commit_exit_code, commit_output = self._exe_command(
+                    commit_cmd, cwd=mysql_bin_dir
+                )
+
+                if commit_success:
+                    return True
+                else:
+                    error_msg = "\n".join([line for line in commit_output if line.strip()])
+                    logger.error(f"MySQL事务提交失败 - exit_code: {commit_exit_code}, 错误: {error_msg}")
+                    return False
             else:
+                # 导入失败时回滚事务
+                rollback_cmd = (
+                    f'{mysql_path} '
+                    f'-h {self.mysql.db_host} '
+                    f'-u {self.mysql.db_user} '
+                    f'-p\'{self.mysql.db_pass}\' '
+                    f'--port={self.mysql.db_port} '
+                    f'--default-character-set=utf8 '
+                    f'--execute="ROLLBACK; SET foreign_key_checks=1; SET unique_checks=1; SET autocommit=1;"'
+                    f' {database}'
+                )
+
+                self._exe_command(rollback_cmd, cwd=mysql_bin_dir)
+
                 error_msg = "\n".join([line for line in output if line.strip()])
                 logger.error(f"MySQL导入失败 - exit_code: {exit_code}, 错误: {error_msg}")
                 return False
