@@ -84,7 +84,7 @@ class MyDump(BaseShell):
             with concurrent.futures.ThreadPoolExecutor(max_workers=8) as pool:
                 futures = []
                 for table in tables:
-                    table_file = os.path.join(db_folder, f"{table}")
+                    table_file = os.path.join(db_folder, f"{table}.sql")
                     future = pool.submit(self._export_table_data, database, table, table_file, mysqldump_path, mysqldump_bin_dir)
                     futures.append(future)
 
@@ -164,7 +164,7 @@ class MyDump(BaseShell):
                     os.rename(temp_file, table_file)
                     logger.info(f'✅ 表数据导出成功: {database}.{table} (耗时: {duration:.2f}秒)')
             else:
-                # 空文件，创建空文件
+                # 空文件，创建带.sql后缀的空文件
                 open(table_file, 'w').close()
                 logger.info(f'✅ 表数据为空: {database}.{table} (耗时: {duration:.2f}秒)')
 
