@@ -55,6 +55,9 @@ def main():
     config_path = Path(__file__).parent.parent / 'config.ini'
     config.read(config_path)
 
+    # 读取是否删除导出文件的配置
+    delete_after_import = config.getboolean('global', 'delete_after_import', fallback=True)
+
     source = Mysql(config.get('source', 'db_host'), config.get('source', 'db_port'), config.get('source', 'db_user'),
                    config.get('source', 'db_pass'))
     target = Mysql(config.get('target', 'db_host'), config.get('target', 'db_port'), config.get('target', 'db_user'),
@@ -87,8 +90,19 @@ def main():
             # 导入数据库
             MyRestore(target).restore_db(sql_file)
 
-            # 清理SQL文件
-            _safe_remove(sql_file, keep_on_error=False)
+            # 根据配置决定是否清理SQL文件和数据库目录
+            if delete_after_import:
+                _safe_remove(sql_file, keep_on_error=False)
+                logger.info(f'🗑️ 已删除导出文件: {sql_file}')
+
+                # 删除数据库同名目录
+                db_folder = dump_folder / db
+                if db_folder.exists():
+                    import shutil
+                    shutil.rmtree(db_folder)
+                    logger.info(f'🗑️ 已删除数据库目录: {db_folder}')
+            else:
+                logger.info(f'💾 保留导出文件: {sql_file}')
             return {'database': db, 'status': 'success', 'error': None}
 
         except Exception as e:

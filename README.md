@@ -48,6 +48,10 @@ python src/main.py
 databases = p3_file_storage,orders,user_center
 # 指定表，*表示所有表
 tables = *
+# 文件拆分阈值，单位MB（大表数据文件超过此大小自动拆分）
+split_threshold = 500
+# 导入完成后是否删除导出的文件：true=删除，false=保留
+delete_after_import = true
 
 [source]
 # 源数据库（可以是任何地方）
@@ -77,9 +81,29 @@ db_pass = target_password
 | **10线程** | **52分钟** | **320MB/s** | **2GB** |
 
 ### 优化参数
-- 自动分表并发，最大10个线程
+- 自动分表并发，最大8个线程导出表数据
 - 每线程独立连接，避免阻塞
 - 流式处理，内存占用稳定
+
+## 🗂️ 文件结构说明
+
+### 导出文件结构
+```
+dumps/
+├── database_name.sql              # 数据库结构文件（仅表结构）
+└── database_name/                 # 数据库目录
+    ├── table1.sql                 # 小表数据文件（小于500MB）
+    ├── table2.part001.sql         # 大表数据第一部分（500MB）
+    ├── table2.part002.sql         # 大表数据第二部分（500MB）
+    ├── table2.part003.sql         # 大表数据第三部分（剩余）
+    └── ...                        # 其他表文件
+```
+
+### 文件拆分规则
+- **触发条件**: 单个表的数据文件超过 `split_threshold` 配置值
+- **拆分单位**: 按INSERT语句边界拆分，确保数据完整性
+- **命名格式**: `表名.partXXX.sql`（三位数字序号）
+- **内存优化**: 流式处理，最大内存占用<1MB
 
 ## 🔧 核心特性
 
@@ -89,9 +113,14 @@ db_pass = target_password
 - 支持Linux/macOS/Windows
 
 ### ✅ 智能并发
-- 根据表大小自动分配线程
-- 大表多线程，小表单线程
-- 动态调整并发数
+- 数据库结构单线程导出（保证一致性）
+- 表数据8线程并发导出（提升性能）
+- 大表自动拆分，小表直接导出
+
+### ✅ 大文件处理
+- 自动检测文件大小
+- 超过阈值自动拆分
+- 流式处理，零内存压力
 
 ### ✅ 实时监控
 - 文件级进度显示
@@ -102,6 +131,7 @@ db_pass = target_password
 - 断点续传支持
 - 内存使用控制
 - 详细的错误日志
+- 自动清理机制
 
 ## 🐳 Docker生产部署
 
@@ -150,7 +180,7 @@ spec:
 mysql-processor/
 ├── src/
 │   ├── main.py          # 主程序入口
-│   ├── dump.py          # 数据导出模块
+│   ├── dump.py          # 数据导出模块（支持大文件拆分）
 │   ├── restore.py       # 数据导入模块
 │   ├── base.py          # MySQL连接基类
 │   ├── monitor.py       # 监控模块
@@ -196,20 +226,24 @@ GRANT SELECT, LOCK TABLES ON *.* TO 'user'@'%';
 GRANT ALL PRIVILEGES ON *.* TO 'user'@'%';
 ```
 
-#### Q: 内存不足
+#### Q: 大文件处理
 ```ini
-# 调低并发数
+# 调整拆分阈值
 [global]
-# 减少同时处理的表数量
-max_workers = 5
+# 设置为1GB拆分
+split_threshold = 1000
+# 设置为不拆分
+split_threshold = 0
 ```
 
-#### Q: 大表迁移失败
+#### Q: 磁盘空间不足
 ```ini
-# 调整MySQL参数
+# 保留导出文件
 [global]
-import_max_allowed_packet = 512M
-import_net_buffer_length = 128K
+delete_after_import = false
+
+# 删除导出文件（默认）
+delete_after_import = true
 ```
 
 ### 日志查看
@@ -227,15 +261,15 @@ tail -f dumps/migration.log
 - **迁移速度**: MB/s，实时显示
 - **剩余时间**: 基于当前速度估算
 - **成功率**: 表级成功/失败统计
-- **错误日志**: 详细的错误信息
+- **文件拆分**: 大表拆分数量和大小
 
-### 告警设置
+### 文件拆分监控
 ```bash
-# 设置超时告警
-export MIGRATION_TIMEOUT=3600  # 1小时
+# 查看拆分文件
+ls -lh dumps/database_name/
 
-# 设置速度阈值
-export MIN_SPEED_MB=50  # 低于50MB/s告警
+# 检查文件大小
+du -sh dumps/database_name/*
 ```
 
 ## 🌐 支持的数据库
