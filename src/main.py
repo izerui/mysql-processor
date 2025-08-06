@@ -129,7 +129,6 @@ def process_single_database(db: str, tables: Optional[List[str]],
 
         # 导入阶段
         import_start = time.time()
-        logger.info(f"开始导入数据库: {db}")
 
         importer = MyRestore(target_mysql)
         import_success = importer.restore_db(db, str(dump_folder))
@@ -167,8 +166,7 @@ def main():
     """主函数：执行MySQL数据库备份导出导入流程"""
     start_time = time.time()
 
-    # 确保MySQL工具已安装
-    mysqldump_path = ensure_mysql_installed()
+    ensure_mysql_installed()
 
     # 加载配置
     config = load_config()
@@ -188,7 +186,6 @@ def main():
     logger.info(f"开始处理 {total_databases} 个数据库...")
 
     for idx, db in enumerate(config['databases'], 1):
-        logger.process(f"进度: {idx}/{total_databases} - 处理数据库: {db}")
 
         result = process_single_database(
             db,

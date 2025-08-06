@@ -177,21 +177,6 @@ class StructuredLogger:
         print(f"{Fore.GREEN} ⏰ 耗时: {duration:.2f} 秒")
         print(f"{Fore.GREEN}{'=' * 80}\n")
 
-    def log_table_progress(self, database: str, table: str, progress: float,
-                           current: int = 0, total: int = 0, speed: Optional[float] = None):
-        """记录表操作进度"""
-        bar_length = 30
-        filled_length = int(bar_length * progress // 100)
-        bar = '█' * filled_length + '░' * (bar_length - filled_length)
-
-        progress_str = f"[{bar}] {progress:5.1f}%"
-        if total > 0:
-            progress_str += f" ({current}/{total})"
-        if speed:
-            progress_str += f" {speed:.1f}MB/s"
-
-        print(f"\r{Fore.CYAN}📊 {database}.{table} {progress_str}", end="", flush=True)
-
     def log_table_complete(self, database: str, table: str, duration: float, size_mb: float = 0):
         """记录表操作完成"""
         # 清除进度条行
