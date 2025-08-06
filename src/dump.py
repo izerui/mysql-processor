@@ -46,18 +46,18 @@ class MyDump(BaseShell):
 
             # 使用标准mysqldump命令
             full_command = f'{cmd} > {dump_file}'
-            logger.info("正在导出数据库...")
+            logger.info(f"正在导出数据库: {database}")
 
             # 使用BaseShell的_exe_command方法执行命令
             success, exit_code, output = self._exe_command(
                 full_command,
-                cwd=mysqldump_bin_dir
+                cwd=mysqldump_bin_dir,
+                success_msg=f'数据库导出成功: {database}'
             )
 
             if not success:
                 raise RuntimeError(f"mysqldump导出失败，exit code: {exit_code}")
 
-            logger.info('✅ 命令执行成功')
             return True
 
         except RuntimeError as e:

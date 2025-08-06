@@ -35,11 +35,12 @@ class BaseShell(object):
         mysql_exe = 'mysql.exe' if platform.system() == 'Windows' else 'mysql'
         return os.path.join(mysql_path, 'bin', mysql_exe)
 
-    def _exe_command(self, command, cwd=None):
+    def _exe_command(self, command, cwd=None, success_msg=None):
         """
         执行 shell 命令并实时打印输出
         :param command: shell 命令
         :param cwd: 工作目录
+        :param success_msg: 成功时的自定义消息
         :return: (success: bool, exit_code: int, output: list)
         """
         # 记录实际执行的命令
@@ -67,13 +68,16 @@ class BaseShell(object):
 
             for line in error_lines:
                 if line.strip():
-                    logger.error(f"  ❌ {line}")
+                    logger.warning(f"  ⚠️ {line}")
 
             exitcode = process.returncode
             all_output = output_lines + error_lines
 
             if exitcode == 0:
-                logger.info('✅ 命令执行成功')
+                if success_msg:
+                    logger.info(f'✅ {success_msg}')
+                else:
+                    logger.info('✅ 命令执行成功')
                 return True, exitcode, all_output
             else:
                 logger.error(f'❌ 命令执行失败 (exit code: {exitcode})')

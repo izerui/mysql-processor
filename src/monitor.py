@@ -91,8 +91,7 @@ class FileMonitor:
 
                     details_str = "\t\t" + "\t|\t".join(change_details) if change_details else ""
                     logger.info(f"📊 总计: {current_count}个文件 | {current_size/1024/1024:.2f}MB | 速度: {speed_mbps:.2f}MB/s{details_str}")
-                else:
-                    logger.info(f"📊 当前: {current_count}个文件, {current_size/1024/1024:.2f}MB (无变化)")
+                # 文件无变化时不输出日志
 
                 # 通知回调函数
                 info = {
