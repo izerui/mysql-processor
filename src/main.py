@@ -66,6 +66,13 @@ def main():
     databases = config.get('global', 'databases').split(',')
     tables = config.get('global', 'tables').split(',')
     dump_folder = Path(__file__).parent.parent / 'dumps'
+
+    # 清理历史文件和目录
+    if dump_folder.exists():
+        import shutil
+        shutil.rmtree(dump_folder)
+        logger.info(f"🧹 已清理历史导出目录: {dump_folder}")
+
     dump_folder.mkdir(exist_ok=True)
 
     # 启动文件监控
