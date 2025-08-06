@@ -35,7 +35,7 @@ class MyRestore(BaseShell):
                 logger.error(f"数据库结构文件不存在: {structure_file}")
                 return False
 
-            logger.info(f"📊 开始导入数据库结构...")
+            logger.info(f"开始导入数据库结构...")
             if not self._import_structure(structure_file, database):
                 return False
 
@@ -73,14 +73,14 @@ class MyRestore(BaseShell):
         """导入数据库结构"""
         try:
             file_size = os.path.getsize(structure_file) / 1024 / 1024
-            logger.info(f"📄 导入数据库结构文件 ({file_size:.1f}MB)")
+            logger.info(f"导入数据库结构文件 ({file_size:.1f}MB)")
 
             start_time = time.time()
             success = self._execute_import(structure_file, database)
 
             if success:
                 duration = time.time() - start_time
-                logger.info(f"✅ 数据库结构导入完成 (耗时: {duration:.2f}s)")
+                logger.success(f"数据库结构导入完成 (耗时: {duration:.2f}s)")
                 return True
             else:
                 return False

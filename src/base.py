@@ -44,7 +44,7 @@ class BaseShell(object):
         :return: (success: bool, exit_code: int, output: list)
         """
         # 记录实际执行的命令
-        logger.info(f"执行命令: {command}")
+        # logger.info(f"执行命令: {command}")
 
         try:
             import subprocess
@@ -68,7 +68,8 @@ class BaseShell(object):
 
             for line in error_lines:
                 if line.strip():
-                    logger.warning(f"  ⚠️ {line}")
+                    if 'Using a password on the command' not in line:
+                        logger.warning(f"  ⚠️ {line}")
 
             exitcode = process.returncode
             all_output = output_lines + error_lines

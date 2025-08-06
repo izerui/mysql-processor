@@ -91,13 +91,13 @@ class MyDump(BaseShell):
         # 删除已存在的数据库结构文件
         if os.path.exists(dump_file):
             os.remove(dump_file)
-            logger.log_cleanup(f"数据库结构文件: {dump_file}")
+            logger.cleanup(f"数据库结构文件: {dump_file}")
 
         # 删除已存在的数据库文件夹
         db_folder = os.path.join(os.path.dirname(dump_file), database)
         if os.path.exists(db_folder):
             shutil.rmtree(db_folder)
-            logger.log_cleanup(f"数据库文件夹: {db_folder}")
+            logger.cleanup(f"数据库文件夹: {db_folder}")
 
     def _export_structure(self, database: str, dump_file: str, mysqldump_path: str, mysqldump_bin_dir: str) -> bool:
         """导出数据库结构"""
@@ -142,7 +142,7 @@ class MyDump(BaseShell):
                 raise RuntimeError(f"数据库结构导出失败，exit code: {exit_code}")
 
             file_size = os.path.getsize(dump_file) / 1024 / 1024
-            logger.info(f"✅ 数据库结构导出完成 ({file_size:.1f}MB)")
+            logger.success(f"数据库结构导出完成 ({file_size:.1f}MB)")
             return True
 
         except Exception as e:
@@ -200,7 +200,7 @@ class MyDump(BaseShell):
                 )
 
         export_duration = time.time() - export_start
-        logger.info(f"📊 表数据导出统计 - 成功: {success_count}, 失败: {len(failed_tables)}, 总计: {len(tables)}, 耗时: {export_duration:.1f}s")
+        logger.info(f"表数据导出统计 - 成功: {success_count}, 失败: {len(failed_tables)}, 总计: {len(tables)}, 耗时: {export_duration:.1f}s")
 
         return success_count
 
@@ -261,8 +261,8 @@ class MyDump(BaseShell):
                 if file_size > self.split_threshold:
                     # 大文件需要拆分
                     file_size_mb = file_size / 1024 / 1024
-                    logger.log_info(
-                        f"📊 文件过大，正在拆分",
+                    logger.info(
+                        f"文件过大，正在拆分",
                         {"table": table, "size": f"{file_size_mb:.1f}MB"}
                     )
                     self._split_large_file(temp_file, table_file, self.split_threshold)
@@ -391,7 +391,7 @@ class MyDump(BaseShell):
 
             # 清除进度条
             print(f"\r{' ' * 100}\r", end="")
-            logger.info(f"📊 文件拆分完成 - 文件数: {file_number}, 总大小: {total_size/1024/1024:.1f}MB")
+            logger.info(f"文件拆分完成 - 文件数: {file_number}, 总大小: {total_size/1024/1024:.1f}MB")
 
         except Exception as e:
             logger.error(f"拆分文件时发生错误: {str(e)}")

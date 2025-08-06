@@ -89,7 +89,7 @@ def cleanup_dump_folder(dump_folder: Path) -> None:
     if dump_folder.exists():
         import shutil
         shutil.rmtree(dump_folder)
-        logger.log_cleanup(str(dump_folder))
+        logger.cleanup(str(dump_folder))
 
 
 def process_single_database(db: str, tables: Optional[List[str]],
@@ -115,7 +115,7 @@ def process_single_database(db: str, tables: Optional[List[str]],
 
         # 导出阶段
         export_start = time.time()
-        logger.log_info(f"🔄 开始导出数据库: {db}")
+        logger.info(f"🔄 开始导出数据库: {db}")
 
         exporter = MyDump(source_mysql)
         export_success = exporter.export_db(db, str(sql_file), tables)
@@ -129,7 +129,7 @@ def process_single_database(db: str, tables: Optional[List[str]],
 
         # 导入阶段
         import_start = time.time()
-        logger.log_info(f"🔄 开始导入数据库: {db}")
+        logger.info(f"🔄 开始导入数据库: {db}")
 
         importer = MyRestore(target_mysql)
         import_success = importer.restore_db(db, str(dump_folder))
@@ -153,7 +153,7 @@ def process_single_database(db: str, tables: Optional[List[str]],
                 import shutil
                 shutil.rmtree(db_folder)
 
-            logger.log_info(f"🗑️ 已清理导出文件: {db}")
+            logger.info(f"🗑️ 已清理导出文件: {db}")
 
         return result
 
