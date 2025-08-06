@@ -62,45 +62,64 @@ def main():
     import_net_buffer_length = config.get('global', 'import_net_buffer_length')
 
     databases = config.get('global', 'databases').split(',')
+    tables = config.get('global', 'tables').split(',')
     dump_folder = Path(__file__).parent.parent / 'dumps'
     dump_folder.mkdir(exist_ok=True)
 
     # 启动文件监控
     try:
-        from monitor import start_global_monitor
-        start_global_monitor('mysql_export', str(dump_folder), 2)
+        from monitor import start_monitor
+        start_monitor(str(dump_folder), 2)
     except ImportError:
         logger.warning("监控模块未找到，跳过文件监控")
 
-    # 导出并导入每个数据库
-    for db in databases:
+    # 使用线程池并发处理数据库导出导入
+    import concurrent.futures
+
+    def process_single_database(db, tables=None):
+        """处理单个数据库的导出和导入"""
         sql_file = f'{dump_folder}/{db}.sql'
 
-        # 导出数据库
-        logger.info(f'---------------------------------------------> 从{source.db_host}导出: {db}')
         try:
+            # 导出数据库
+            logger.info(f'---------------------------------------------> 从{source.db_host}导出: {db}')
             exporter = MyDump(source)
-            exporter.export_db(db, sql_file)
+            exporter.export_db(db, sql_file, tables)
             logger.info(f'---------------------------------------------> 成功 从{source.db_host}导出: {db}')
-        except RuntimeError as e:
-            logger.error(f'---------------------------------------------> 导出失败: {str(e)}')
-            _safe_remove(sql_file)
-            continue
 
-        # 导入数据库
-        logger.info(f'---------------------------------------------> 导入{target.db_host}: {db}')
-        try:
+            # 导入数据库
+            logger.info(f'---------------------------------------------> 导入{target.db_host}: {db}')
             MyRestore(target, import_max_allowed_packet, import_net_buffer_length).restore_db(sql_file)
             logger.info(f'---------------------------------------------> 成功 导入{target.db_host}: {db}')
+
+            # 清理SQL文件
             _safe_remove(sql_file, keep_on_error=False)
-        except RuntimeError as e:
-            logger.error(f'---------------------------------------------> 导入失败: {str(e)}')
-            logger.warning(f'--------------------------------------------->> 保留文件用于调试: {sql_file}')
+            return {'database': db, 'status': 'success', 'error': None}
+
+        except Exception as e:
+            logger.error(f'---------------------------------------------> 处理数据库 {db} 失败: {str(e)}')
+            _safe_remove(sql_file)
+            return {'database': db, 'status': 'failed', 'error': str(e)}
+
+    # 使用线程池并发处理
+    with concurrent.futures.ThreadPoolExecutor(max_workers=10) as pool:
+        futures = []
+        for db in databases:
+            future = pool.submit(process_single_database, db, tables)  # 默认tables=None
+            futures.append(future)
+
+        # 等待所有任务完成
+        for future in concurrent.futures.as_completed(futures):
+            result = future.result()
+            if result['status'] == 'failed':
+                logger.error(f'---------------------------------------------> 数据库 {result["database"]} 处理失败: {result["error"]}')
+            else:
+                logger.info(f'---------------------------------------------> 数据库 {result["database"]} 处理完成')
 
     # 程序结束前停止监控
     try:
-        from monitor import stop_all_monitors
-        stop_all_monitors()
+        from monitor import stop_monitor
+        stop_monitor()
     except ImportError:
         pass
 

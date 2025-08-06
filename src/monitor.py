@@ -1,261 +1,195 @@
 #!/usr/bin/env python3
-"""
-全局文件系统监控模块
-独立于dump.py，提供可复用的文件监控功能
-"""
+"""极简文件监控模块"""
 
-import os
 import time
 import threading
 from pathlib import Path
 from typing import Optional, Callable, Dict, Any
 from logger_config import logger
 
-# 全局监控管理器
-_global_monitor_manager = None
-_global_monitor_lock = threading.Lock()
-
-
 class FileMonitor:
-    """独立的文件系统监控类"""
+    """文件监控器"""
 
     def __init__(self, target_dir: str, interval: int = 2):
-        """
-        初始化文件监控器
-
-        Args:
-            target_dir: 要监控的目录路径
-            interval: 检查间隔时间（秒）
-        """
         self.target_dir = Path(target_dir)
         self.interval = interval
-        self._thread: Optional[threading.Thread] = None
-        self._stop_event = threading.Event()
-        self._no_change_counter = 0
-        self._last_total_size = 0
-        self._last_check_time = time.time()
-        self._callbacks: Dict[str, Callable] = {}
+        self._thread = None
+        self._stop = threading.Event()
+        self._last_size = 0.0
+        self._last_time = 0.0
+        self._last_files: Dict[str, Dict[str, float]] = {}
+        self._callbacks = {}
 
     def start(self) -> bool:
-        """启动监控线程"""
-        with _global_monitor_lock:
-            if self.is_running():
-                logger.warning("监控线程已在运行")
-                return False
-
-            self._stop_event.clear()
-            self._thread = threading.Thread(
-                target=self._monitor_loop,
-                daemon=True
-            )
-            self._thread.start()
-            logger.info(f"🚀 文件监控已启动: {self.target_dir}")
-            return True
+        """启动监控"""
+        if self.is_running():
+            return False
+        self._stop.clear()
+        self._thread = threading.Thread(target=self._loop, daemon=True)
+        self._thread.start()
+        logger.info(f"监控启动: {self.target_dir}")
+        return True
 
     def stop(self) -> bool:
-        """停止监控线程"""
-        with _global_monitor_lock:
-            if not self.is_running():
-                logger.warning("监控线程未运行")
-                return False
-
-            self._stop_event.set()
-            self._thread.join(timeout=10)
-            if self._thread.is_alive():
-                logger.error("监控线程停止超时")
-                return False
-
-            self._thread = None
-            logger.info("🛑 文件监控已停止")
-            return True
+        """停止监控"""
+        if not self.is_running():
+            return False
+        self._stop.set()
+        self._thread.join(timeout=10)
+        self._thread = None
+        logger.info("监控停止")
+        return True
 
     def is_running(self) -> bool:
-        """检查监控线程是否在运行"""
-        return self._thread is not None and self._thread.is_alive()
+        """检查运行状态"""
+        return self._thread and self._thread.is_alive()
 
-    def add_callback(self, name: str, callback: Callable[[Dict[str, Any]], None]) -> None:
-        """
-        添加回调函数
-
-        Args:
-            name: 回调名称
-            callback: 回调函数，接收包含监控信息的字典
-        """
+    def add_callback(self, name: str, callback: Callable[[Dict[str, Any]], None]):
+        """添加回调"""
         self._callbacks[name] = callback
 
-    def remove_callback(self, name: str) -> bool:
-        """移除回调函数"""
-        if name in self._callbacks:
-            del self._callbacks[name]
-            return True
-        return False
+    def _loop(self):
+        """监控循环"""
+        self._last_time = float(time.time())
+        self._last_files = self._get_files_info()
+        self._last_size = sum(info['size'] for info in self._last_files.values())
 
-    def _monitor_loop(self):
-        """监控主循环"""
-        logger.info("🌐 文件监控线程开始运行")
-
-        while not self._stop_event.is_set():
+        while not self._stop.is_set():
             try:
-                if self.target_dir.exists():
-                    total_size, file_count = self._get_dir_info()
-                    current_time = time.time()
-                    time_elapsed = current_time - self._last_check_time
+                current_files = self._get_files_info()
+                current_size = sum(float(info['size']) for info in current_files.values())
+                current_count = len(current_files)
+                current_time = float(time.time())
+                elapsed = max(current_time - self._last_time, 0.001)
 
-                    info = {
-                        'total_size': total_size,
-                        'total_size_mb': total_size / (1024 * 1024),
-                        'file_count': file_count,
-                        'time_elapsed': time_elapsed,
-                        'has_changed': total_size != self._last_total_size,
-                        'speed_mbps': 0
-                    }
+                # 检测变化
+                changed_files = self._detect_changes(current_files)
+                size_change = current_size - self._last_size
 
-                    if info['has_changed']:
-                        # 有变化立即处理
-                        if time_elapsed > 0:
-                            info['speed_mbps'] = (total_size - self._last_total_size) / (1024 * 1024) / time_elapsed
-                        self._notify_callbacks(info)
-                        self._no_change_counter = 0
-                    else:
-                        # 无变化时计数
-                        self._no_change_counter += 1
-                        if self._no_change_counter % 10 == 0:
-                            self._notify_callbacks(info)
+                if changed_files or abs(size_change) > 0.001:
+                    speed_mbps = abs(size_change) / (1024.0 * 1024.0) / elapsed
 
-                    self._last_total_size = total_size
-                    self._last_check_time = current_time
+                    # 总览信息
+                    logger.info(f"📊 总计: {current_count}个文件 | {current_size/1024/1024:.2f}MB | 速度: {speed_mbps:.2f}MB/s")
+
+                    # 文件详情
+                    for change in changed_files:
+                        filename = Path(change['path']).name
+                        action = change['action']
+                        size_mb = float(change['size_mb'])
+                        size_diff = float(change.get('size_diff', 0))
+
+                        if action == '新增':
+                            logger.info(f"   📄 {filename} → 当前: {size_mb:.2f}MB | 新增: +{size_mb:.2f}MB")
+                        elif action == '删除':
+                            logger.info(f"   📄 {filename} → 当前: 0.00MB | 删除: -{size_mb:.2f}MB")
+                        else:  # 修改
+                            logger.info(f"   📄 {filename} → 当前: {size_mb:.2f}MB | 修改: {size_diff:+.2f}MB")
                 else:
-                    # 目录不存在时计数
-                    self._no_change_counter += 1
-                    if self._no_change_counter % 10 == 0:
-                        info = {
-                            'total_size': 0,
-                            'total_size_mb': 0,
-                            'file_count': 0,
-                            'time_elapsed': 0,
-                            'has_changed': False,
-                            'speed_mbps': 0
-                        }
-                        self._notify_callbacks(info)
+                    logger.info(f"📊 当前: {current_count}个文件, {current_size/1024/1024:.2f}MB (无变化)")
+
+                self._last_files = current_files
+                self._last_size = current_size
+                self._last_time = current_time
 
             except Exception as e:
-                logger.error(f"监控线程出错: {str(e)}")
+                logger.error(f"监控错误: {str(e)}")
+                import traceback
+                logger.error(traceback.format_exc())
 
             time.sleep(self.interval)
 
-        logger.info("🛑 文件监控线程已停止")
+    def _get_files_info(self) -> Dict[str, Dict[str, float]]:
+        """获取所有文件信息"""
+        files = {}
+        if not self.target_dir.exists():
+            return files
 
-    def _get_dir_info(self) -> tuple[int, int]:
-        """获取目录信息"""
-        total_size = 0
-        file_count = 0
+        for f in self.target_dir.rglob('*'):
+            if f.is_file():
+                try:
+                    stat = f.stat()
+                    files[str(f)] = {
+                        'path': str(f),
+                        'size': float(stat.st_size),
+                        'size_mb': float(stat.st_size) / (1024.0 * 1024.0),
+                        'mtime': float(stat.st_mtime)
+                    }
+                except Exception:
+                    pass
+        return files
 
-        if self.target_dir.exists():
-            for file_path in self.target_dir.rglob('*'):
-                if file_path.is_file():
-                    try:
-                        total_size += file_path.stat().st_size
-                        file_count += 1
-                    except (OSError, IOError):
-                        pass
+    def _detect_changes(self, current_files: Dict[str, Dict[str, float]]) -> list:
+        """检测文件变化"""
+        changes = []
 
-        return total_size, file_count
+        # 检测新增和修改的文件
+        for path, info in current_files.items():
+            if path not in self._last_files:
+                changes.append({
+                    'action': '新增',
+                    'path': path,
+                    'size_mb': float(info['size_mb']),
+                    'size_diff': float(info['size_mb'])
+                })
+            elif abs(float(info['mtime']) - float(self._last_files[path]['mtime'])) > 0.001 or \
+                 abs(float(info['size']) - float(self._last_files[path]['size'])) > 0.001:
+                size_diff = float(info['size']) - float(self._last_files[path]['size'])
+                changes.append({
+                    'action': '修改',
+                    'path': path,
+                    'size_mb': float(info['size_mb']),
+                    'size_diff': float(size_diff) / (1024.0 * 1024.0)
+                })
 
-    def _notify_callbacks(self, info: Dict[str, Any]):
-        """通知所有回调函数"""
-        for name, callback in self._callbacks.items():
+        # 检测删除的文件
+        for path, info in self._last_files.items():
+            if path not in current_files:
+                changes.append({
+                    'action': '删除',
+                    'path': path,
+                    'size_mb': float(info['size_mb']),
+                    'size_diff': -float(info['size_mb'])
+                })
+
+        return changes
+
+    def _notify(self, info: Dict[str, Any]):
+        """通知回调"""
+        for name, cb in self._callbacks.items():
             try:
-                callback(info)
+                cb(info)
             except Exception as e:
-                logger.error(f"回调函数 {name} 执行失败: {str(e)}")
+                logger.error(f"回调错误 {name}: {str(e)}")
 
+# 全局监控器
+_monitor = None
 
-class GlobalMonitorManager:
-    """全局监控管理器"""
-
-    def __init__(self):
-        self._monitors: Dict[str, FileMonitor] = {}
-
-    def start_monitor(self, monitor_id: str, target_dir: str, interval: int = 2) -> bool:
-        """启动全局监控"""
-        if monitor_id in self._monitors:
-            logger.warning(f"监控ID {monitor_id} 已存在")
-            return False
-
-        monitor = FileMonitor(target_dir, interval)
-        if monitor.start():
-            self._monitors[monitor_id] = monitor
-            return True
-        return False
-
-    def stop_monitor(self, monitor_id: str) -> bool:
-        """停止指定监控"""
-        if monitor_id not in self._monitors:
-            return False
-
-        success = self._monitors[monitor_id].stop()
-        if success:
-            del self._monitors[monitor_id]
-        return success
-
-    def stop_all(self):
-        """停止所有监控"""
-        for monitor_id in list(self._monitors.keys()):
-            self.stop_monitor(monitor_id)
-
-    def get_monitor(self, monitor_id: str) -> Optional[FileMonitor]:
-        """获取指定监控器"""
-        return self._monitors.get(monitor_id)
-
-    def list_monitors(self) -> list[str]:
-        """列出所有监控ID"""
-        return list(self._monitors.keys())
-
-
-# 全局监控管理器实例
-_global_monitor_manager = GlobalMonitorManager()
-
-# 便捷函数
-def start_global_monitor(monitor_id: str, target_dir: str, interval: int = 2) -> bool:
+def start_monitor(path: str, interval: int = 2) -> bool:
     """启动全局监控"""
-    return _global_monitor_manager.start_monitor(monitor_id, target_dir, interval)
+    global _monitor
+    if _monitor is None:
+        _monitor = FileMonitor(path, interval)
+    return _monitor.start()
 
-def stop_global_monitor(monitor_id: str) -> bool:
-    """停止指定全局监控"""
-    return _global_monitor_manager.stop_monitor(monitor_id)
-
-def stop_all_monitors():
-    """停止所有全局监控"""
-    _global_monitor_manager.stop_all()
-
-def get_global_monitor(monitor_id: str) -> Optional[FileMonitor]:
-    """获取全局监控器"""
-    return _global_monitor_manager.get_monitor(monitor_id)
-
-# 默认监控器
-_default_monitor = None
-
-def start_default_monitor(target_dir: str, interval: int = 2) -> bool:
-    """启动默认监控器"""
-    global _default_monitor
-    if _default_monitor is None:
-        _default_monitor = FileMonitor(target_dir, interval)
-    return _default_monitor.start()
-
-def stop_default_monitor() -> bool:
-    """停止默认监控器"""
-    global _default_monitor
-    if _default_monitor is not None:
-        success = _default_monitor.stop()
-        _default_monitor = None
+def stop_monitor() -> bool:
+    """停止全局监控"""
+    global _monitor
+    if _monitor:
+        success = _monitor.stop()
+        _monitor = None
         return success
     return False
 
-def add_default_callback(name: str, callback: Callable[[Dict[str, Any]], None]) -> None:
-    """为默认监控器添加回调"""
-    if _default_monitor is not None:
-        _default_monitor.add_callback(name, callback)
+def get_monitor() -> Optional[FileMonitor]:
+    """获取监控器"""
+    return _monitor
 
-# 程序退出时清理
+def add_callback(name: str, callback: Callable[[Dict[str, Any]], None]):
+    """添加回调"""
+    if _monitor:
+        _monitor.add_callback(name, callback)
+
+# 清理
 import atexit
-atexit.register(stop_all_monitors)
+atexit.register(stop_monitor)
