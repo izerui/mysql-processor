@@ -4,6 +4,7 @@ import time
 import concurrent.futures
 import re
 import configparser
+from typing import List, Optional
 
 from base import BaseShell, Mysql
 from logger_config import logger
@@ -11,7 +12,8 @@ from logger_config import logger
 
 class MyDump(BaseShell):
     """
-    使用mysqldump导出数据库备份
+    使用mysqldump导出数据库备份 - 重构版
+    提供清晰的进度显示和结构化日志
     """
 
     def __init__(self, mysql: Mysql):
@@ -35,23 +37,71 @@ class MyDump(BaseShell):
         except Exception:
             return 500 * 1024 * 1024  # 默认500MB
 
-    def export_db(self, database, dump_file, tables=None):
+    def export_db(self, database: str, dump_file: str, tables: Optional[List[str]] = None):
         """
         使用mysqldump导出数据库结构，然后使用线程池分别导出每个表的数据
-        :param database: 数据库名
-        :param dump_file: 导出的SQL文件路径
-        :param tables: 表名列表，默认为None导出所有表
-        :return:
+        提供清晰的进度显示
         """
+        start_time = time.time()
+        logger.log_database_start(database, "导出")
+
         try:
+            # 清理已存在的文件和目录
+            self._cleanup_existing_files(dump_file, database)
+
             # 确保输出目录存在
             os.makedirs(os.path.dirname(dump_file), exist_ok=True)
 
             mysqldump_path = self._get_mysqldump_exe()
             mysqldump_bin_dir = os.path.dirname(mysqldump_path)
 
-            # 第一步：导出数据库结构（仅表结构，不包含数据）
-            logger.info(f"正在导出数据库结构: {database}")
+            # 第一步：导出数据库结构
+            logger.info(f"📊 正在导出数据库结构...")
+            structure_start = time.time()
+            if not self._export_structure(database, dump_file, mysqldump_path, mysqldump_bin_dir):
+                return False
+
+            # 第二步：获取数据库的所有表
+            if tables is None or tables == ['*']:
+                tables = self._get_all_tables(database)
+
+            if not tables:
+                logger.info(f"ℹ️ 数据库 {database} 中没有表需要导出数据")
+                logger.log_database_complete(database, "导出", time.time() - start_time)
+                return True
+
+            # 第三步：导出表数据
+            logger.info(f"📊 发现 {len(tables)} 个表需要导出数据")
+            success_count = self._export_tables_data(database, tables, dump_file, mysqldump_path, mysqldump_bin_dir)
+
+            if success_count == len(tables):
+                total_duration = time.time() - start_time
+                logger.log_database_complete(database, "导出", total_duration)
+                return True
+            else:
+                logger.error(f"导出失败: {len(tables) - success_count} 个表导出失败")
+                return False
+
+        except Exception as e:
+            logger.error(f"导出过程发生错误 - 数据库: {database}, 错误: {str(e)}")
+            return False
+
+    def _cleanup_existing_files(self, dump_file: str, database: str):
+        """清理已存在的文件和目录"""
+        # 删除已存在的数据库结构文件
+        if os.path.exists(dump_file):
+            os.remove(dump_file)
+            logger.log_cleanup(f"数据库结构文件: {dump_file}")
+
+        # 删除已存在的数据库文件夹
+        db_folder = os.path.join(os.path.dirname(dump_file), database)
+        if os.path.exists(db_folder):
+            shutil.rmtree(db_folder)
+            logger.log_cleanup(f"数据库文件夹: {db_folder}")
+
+    def _export_structure(self, database: str, dump_file: str, mysqldump_path: str, mysqldump_bin_dir: str) -> bool:
+        """导出数据库结构"""
+        try:
             cmd = (
                 f'{mysqldump_path} '
                 f'-h {self.mysql.db_host} '
@@ -86,82 +136,80 @@ class MyDump(BaseShell):
             )
 
             full_command = f'{cmd} > {dump_file}'
-            success, exit_code, output = self._exe_command(
-                full_command,
-                cwd=mysqldump_bin_dir
-            )
+            success, exit_code, output = self._exe_command(full_command, cwd=mysqldump_bin_dir)
 
             if not success:
                 raise RuntimeError(f"数据库结构导出失败，exit code: {exit_code}")
 
-            logger.info(f'✅ 数据库结构导出成功: {database}')
-
-            # 第二步：获取数据库的所有表
-            if tables is None or tables == ['*']:
-                tables = self._get_all_tables(database)
-
-            if not tables:
-                logger.info(f"数据库 {database} 中没有表需要导出数据")
-                return True
-
-            # 第三步：创建数据库文件夹
-            db_folder = os.path.join(os.path.dirname(dump_file), database)
-            os.makedirs(db_folder, exist_ok=True)
-
-            # 第四步：使用线程池导出每个表的数据
-            logger.info(f"正在使用线程池导出 {len(tables)} 个表的数据...")
-            start_time = time.time()
-
-            with concurrent.futures.ThreadPoolExecutor(max_workers=8) as pool:
-                futures = []
-                for table in tables:
-                    table_file = os.path.join(db_folder, f"{table}.sql")
-                    future = pool.submit(self._export_table_data, database, table, table_file, mysqldump_path, mysqldump_bin_dir)
-                    futures.append(future)
-
-                # 等待所有任务完成
-                for future in concurrent.futures.as_completed(futures):
-                    try:
-                        future.result()
-                    except Exception as e:
-                        logger.error(f"导出表数据时发生错误: {str(e)}")
-                        raise
-
-            duration = time.time() - start_time
-            logger.info(f'✅ 所有表数据导出完成 (耗时: {duration:.2f}秒)')
+            file_size = os.path.getsize(dump_file) / 1024 / 1024
+            logger.info(f"✅ 数据库结构导出完成 ({file_size:.1f}MB)")
             return True
 
-        except RuntimeError as e:
-            raise e
         except Exception as e:
-            raise RuntimeError(f"导出过程发生错误: {str(e)}")
+            logger.error(f"数据库结构导出失败 - 数据库: {database}, 错误: {str(e)}")
+            return False
 
-    def _get_all_tables(self, database):
-        """获取数据库中的所有表名"""
-        try:
-            import pymysql
-            connection = pymysql.connect(
-                host=self.mysql.db_host,
-                user=self.mysql.db_user,
-                password=self.mysql.db_pass,
-                port=int(self.mysql.db_port),
-                database=database,
-                charset='utf8'
-            )
+    def _export_tables_data(self, database: str, tables: List[str], dump_file: str,
+                          mysqldump_path: str, mysqldump_bin_dir: str) -> int:
+        """并发导出所有表的数据"""
+        db_folder = os.path.join(os.path.dirname(dump_file), database)
+        os.makedirs(db_folder, exist_ok=True)
 
-            with connection.cursor() as cursor:
-                cursor.execute("SHOW TABLES")
-                tables = [row[0] for row in cursor.fetchall()]
+        logger.info(f"🔄 开始并发导出表数据...")
+        export_start = time.time()
 
-            connection.close()
-            return tables
+        success_count = 0
+        failed_tables = []
 
-        except Exception as e:
-            logger.error(f"获取表列表失败: {str(e)}")
-            return []
+        with concurrent.futures.ThreadPoolExecutor(max_workers=8) as pool:
+            # 提交所有导出任务
+            futures = []
+            for idx, table in enumerate(tables):
+                table_file = os.path.join(db_folder, f"{table}.sql")
+                future = pool.submit(
+                    self._export_single_table,
+                    database, table, table_file,
+                    mysqldump_path, mysqldump_bin_dir,
+                    idx + 1, len(tables)
+                )
+                futures.append((table, future))
 
-    def _export_table_data(self, database, table, table_file, mysqldump_path, mysqldump_bin_dir):
-        """导出单个表的数据（仅insert语句），并按500MB拆分大文件"""
+            # 收集结果
+            for table, future in futures:
+                try:
+                    result = future.result()
+                    if result['success']:
+                        success_count += 1
+                        logger.log_table_complete(
+                            database, table, result['duration'], result['size_mb']
+                        )
+                    else:
+                        failed_tables.append(table)
+                        logger.error(f"表导出失败 - 数据库: {database}, 表: {table}, 错误: {result['error']}")
+                except Exception as e:
+                    failed_tables.append(table)
+                    logger.error(f"表导出异常 - 数据库: {database}, 表: {table}, 错误: {str(e)}")
+
+                # 更新批量进度
+                progress = (success_count + len(failed_tables)) / len(tables) * 100
+                logger.log_batch_progress(
+                    "表数据导出",
+                    success_count + len(failed_tables),
+                    len(tables),
+                    len(failed_tables)
+                )
+
+        export_duration = time.time() - export_start
+        logger.info(f"📊 表数据导出统计 - 成功: {success_count}, 失败: {len(failed_tables)}, 总计: {len(tables)}, 耗时: {export_duration:.1f}s")
+
+        return success_count
+
+    def _export_single_table(self, database: str, table: str, table_file: str,
+                           mysqldump_path: str, mysqldump_bin_dir: str,
+                           current_num: int, total_tables: int) -> dict:
+        """导出单个表的数据"""
+        start_time = time.time()
+
         try:
             cmd = (
                 f'{mysqldump_path} '
@@ -198,51 +246,92 @@ class MyDump(BaseShell):
             # 先导出到临时文件
             temp_file = f"{table_file}.tmp"
             full_command = f'{cmd} > {temp_file}'
-            logger.info(f"正在导出表数据: {database}.{table}")
 
-            start_time = time.time()
             success, exit_code, output = self._exe_command(
-                full_command,
-                cwd=mysqldump_bin_dir
+                full_command, cwd=mysqldump_bin_dir
             )
-            duration = time.time() - start_time
 
             if not success:
-                raise RuntimeError(f"表数据导出失败: {database}.{table}, exit code: {exit_code}")
+                raise RuntimeError(f"表数据导出失败，exit code: {exit_code}")
 
-            # 检查文件大小并拆分
+            # 处理文件
             if os.path.exists(temp_file):
                 file_size = os.path.getsize(temp_file)
-                max_size = self.split_threshold
 
-                if file_size > max_size:
-                    logger.info(f"表 {database}.{table} 数据文件过大 ({file_size / 1024 / 1024:.2f}MB)，正在拆分...")
-                    self._split_large_file(temp_file, table_file, max_size)
+                if file_size > self.split_threshold:
+                    # 大文件需要拆分
+                    file_size_mb = file_size / 1024 / 1024
+                    logger.log_info(
+                        f"📊 文件过大，正在拆分",
+                        {"table": table, "size": f"{file_size_mb:.1f}MB"}
+                    )
+                    self._split_large_file(temp_file, table_file, self.split_threshold)
                     os.remove(temp_file)
-                    logger.info(f'✅ 表数据导出并拆分成功: {database}.{table} (耗时: {duration:.2f}秒)')
+                    # 文件已拆分，使用原始文件大小作为参考
+                    file_size_mb = file_size / 1024 / 1024
                 else:
-                    # 文件不大，直接重命名
+                    # 小文件直接重命名
                     os.rename(temp_file, table_file)
-                    logger.info(f'✅ 表数据导出成功: {database}.{table} (耗时: {duration:.2f}秒)')
+                    file_size_mb = os.path.getsize(table_file) / 1024 / 1024
+                return {
+                    'success': True,
+                    'duration': time.time() - start_time,
+                    'size_mb': file_size_mb
+                }
             else:
-                # 空文件，创建空文件
+                # 空文件
                 open(table_file, 'w').close()
-                logger.info(f'✅ 表数据为空: {database}.{table} (耗时: {duration:.2f}秒)')
+                return {
+                    'success': True,
+                    'duration': time.time() - start_time,
+                    'size_mb': 0
+                }
 
         except Exception as e:
-            logger.error(f"导出表 {database}.{table} 数据时发生错误: {str(e)}")
-            if os.path.exists(f"{table_file}.tmp"):
-                os.remove(f"{table_file}.tmp")
-            raise
+            # 清理临时文件
+            if os.path.exists(temp_file):
+                os.remove(temp_file)
+            return {
+                'success': False,
+                'duration': time.time() - start_time,
+                'error': str(e)
+            }
 
-    def _split_large_file(self, temp_file, base_filename, max_size):
-        """将大文件按500MB拆分成多个文件，使用流式处理避免内存问题"""
+    def _get_all_tables(self, database: str) -> List[str]:
+        """获取数据库中的所有表名"""
+        try:
+            import pymysql
+            connection = pymysql.connect(
+                host=self.mysql.db_host,
+                user=self.mysql.db_user,
+                password=self.mysql.db_pass,
+                port=int(self.mysql.db_port),
+                database=database,
+                charset='utf8'
+            )
+
+            with connection.cursor() as cursor:
+                cursor.execute("SHOW TABLES")
+                tables = [row[0] for row in cursor.fetchall()]
+
+            connection.close()
+            logger.info(f"📊 获取表列表完成 - 数据库: {database}, 表数量: {len(tables)}")
+            return sorted(tables)
+
+        except Exception as e:
+            logger.error(f"获取表列表失败 - 数据库: {database}, 错误: {str(e)}")
+            return []
+
+    def _split_large_file(self, temp_file: str, base_filename: str, max_size: int):
+        """将大文件按指定大小拆分成多个文件"""
         try:
             file_number = 1
             current_size = 0
             current_file = None
 
-            # 只使用UTF-8编码
+            total_size = os.path.getsize(temp_file)
+            processed_size = 0
+
             with open(temp_file, 'r', encoding='utf-8') as f:
                 line_buffer = []
                 buffer_size_bytes = 0
@@ -250,10 +339,21 @@ class MyDump(BaseShell):
                 for line in f:
                     line_bytes = line.encode('utf-8')
                     line_size = len(line_bytes)
+                    processed_size += line_size
 
-                    # 如果是INSERT语句的开头，检查是否需要新文件
+                    # 进度显示
+                    if processed_size % (10 * 1024 * 1024) < line_size:  # 每10MB显示一次进度
+                        progress = (processed_size / total_size) * 100
+                        logger.log_table_progress(
+                            os.path.basename(base_filename).split('.')[0],
+                            f"拆分进度",
+                            progress,
+                            processed_size // 1024 // 1024,
+                            total_size // 1024 // 1024
+                        )
+
+                    # 检查是否需要新文件
                     if line.strip().startswith('INSERT INTO'):
-                        # 如果已有缓冲内容且会超出限制，先写入当前文件
                         if current_file and current_size + buffer_size_bytes + line_size > max_size:
                             current_file.write(''.join(line_buffer))
                             line_buffer = []
@@ -263,19 +363,18 @@ class MyDump(BaseShell):
                             current_file = None
                             current_size = 0
 
-                        # 如果需要新文件
                         if current_file is None:
-                            # 将.sql后缀放在.partxxx之前，保持正确的文件扩展名
                             base_name_without_ext = os.path.splitext(base_filename)[0]
                             ext = os.path.splitext(base_filename)[1]
-                            current_file = open(f"{base_name_without_ext}.part{file_number:03d}{ext}", 'w', encoding='utf-8')
+                            current_file = open(
+                                f"{base_name_without_ext}.part{file_number:03d}{ext}",
+                                'w', encoding='utf-8'
+                            )
                             current_size = 0
 
-                    # 添加到缓冲区
                     line_buffer.append(line)
                     buffer_size_bytes += line_size
 
-                    # 定期写入，避免缓冲区过大
                     if buffer_size_bytes >= 1024 * 1024:  # 1MB时写入
                         if current_file:
                             current_file.write(''.join(line_buffer))
@@ -289,6 +388,10 @@ class MyDump(BaseShell):
                     current_file.close()
                 elif current_file:
                     current_file.close()
+
+            # 清除进度条
+            print(f"\r{' ' * 100}\r", end="")
+            logger.info(f"📊 文件拆分完成 - 文件数: {file_number}, 总大小: {total_size/1024/1024:.1f}MB")
 
         except Exception as e:
             logger.error(f"拆分文件时发生错误: {str(e)}")

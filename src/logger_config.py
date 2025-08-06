@@ -1,59 +1,251 @@
-#!/usr/bin/env python3
-"""
-统一的日志配置模块
-为整个项目提供一致的日志格式和配置
-"""
-
 import logging
+import os
 import sys
-from typing import Optional
+import time
+from datetime import datetime, timedelta
+from typing import Optional, Dict, Any
+import threading
+import colorama
+from colorama import Fore, Back, Style
 
+# 初始化colorama，支持Windows终端颜色
+colorama.init(autoreset=True)
 
-def setup_logger(
-    name: Optional[str] = None,
-    level: int = logging.INFO,
-    format_string: Optional[str] = None
-) -> logging.Logger:
-    """
-    设置并返回一个配置好的logger
+class ProgressTracker:
+    """进度追踪器"""
+    def __init__(self, total: int, description: str = ""):
+        self.total = total
+        self.current = 0
+        self.description = description
+        self.start_time = time.time()
+        self.lock = threading.Lock()
 
-    Args:
-        name: logger名称，如果为None则使用根logger
-        level: 日志级别，默认为INFO
-        format_string: 自定义格式字符串
+    def update(self, increment: int = 1):
+        with self.lock:
+            self.current += increment
 
-    Returns:
-        logging.Logger: 配置好的logger实例
-    """
-    if format_string is None:
-        format_string = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    @property
+    def percentage(self) -> float:
+        return (self.current / self.total * 100) if self.total > 0 else 0
 
-    # 创建logger
-    logger = logging.getLogger(name)
+    @property
+    def elapsed_time(self) -> float:
+        return time.time() - self.start_time
 
-    # 避免重复添加handler
-    if logger.handlers:
-        return logger
+    @property
+    def eta(self) -> Optional[float]:
+        if self.current == 0:
+            return None
+        rate = self.current / self.elapsed_time
+        remaining = self.total - self.current
+        return remaining / rate if rate > 0 else None
 
-    # 设置日志级别
-    logger.setLevel(level)
+class StructuredLogger:
+    """结构化日志系统"""
 
-    # 创建控制台handler
-    handler = logging.StreamHandler(sys.stdout)
-    handler.setLevel(level)
+    # 日志级别颜色映射
+    LEVEL_COLORS = {
+        'DEBUG': Fore.CYAN,
+        'INFO': Fore.GREEN,
+        'WARNING': Fore.YELLOW,
+        'ERROR': Fore.RED,
+        'CRITICAL': Back.RED + Fore.WHITE,
+    }
 
-    # 创建formatter
-    formatter = logging.Formatter(format_string)
-    handler.setFormatter(formatter)
+    # 状态图标
+    STATUS_ICONS = {
+        'START': '🚀',
+        'PROGRESS': '⏳',
+        'SUCCESS': '✅',
+        'ERROR': '❌',
+        'WARNING': '⚠️',
+        'INFO': 'ℹ️',
+        'COMPLETE': '🎉',
+        'CLEAN': '🧹',
+        'DATABASE': '🗄️',
+        'TABLE': '📊',
+        'FILE': '📄',
+        'TIME': '⏰',
+        'STATS': '📊',
+    }
 
-    # 添加handler到logger
-    logger.addHandler(handler)
+    def __init__(self, name: str = "MySQLProcessor"):
+        self.logger = logging.getLogger(name)
+        self.progress_trackers: Dict[str, ProgressTracker] = {}
+        self.setup_logger()
 
-    return logger
+    def setup_logger(self):
+        """设置日志器"""
+        if self.logger.handlers:
+            return
 
+        self.logger.setLevel(logging.INFO)
 
-# 预定义的logger实例
-logger = setup_logger("mysql-processor")
+        # 创建控制台处理器
+        console_handler = logging.StreamHandler(sys.stdout)
+        console_handler.setLevel(logging.INFO)
 
-# 导出函数供其他模块使用
-__all__ = ['setup_logger', 'logger']
+        # 创建格式化器
+        formatter = logging.Formatter(
+            '%(asctime)s | %(levelname)8s | %(message)s',
+            datefmt='%H:%M:%S'
+        )
+        console_handler.setFormatter(formatter)
+
+        # 添加处理器
+        self.logger.addHandler(console_handler)
+
+    def _format_message(self, level: str, message: str, context: Optional[Dict] = None) -> str:
+        """格式化消息"""
+        color = self.LEVEL_COLORS.get(level, '')
+        reset = Style.RESET_ALL
+
+        # 添加上下文信息
+        context_str = ""
+        if context:
+            context_parts = []
+            for key, value in context.items():
+                if key == 'progress':
+                    context_parts.append(f"{value:.1f}%")
+                elif key == 'time':
+                    context_parts.append(f"{value:.2f}s")
+                elif key == 'size':
+                    context_parts.append(f"{value:.2f}MB")
+                else:
+                    context_parts.append(f"{key}={value}")
+            if context_parts:
+                context_str = f" [{', '.join(context_parts)}]"
+
+        return f"{color}{message}{context_str}{reset}"
+
+    def log_system_start(self, databases: list, tables: list):
+        """记录系统启动信息"""
+        print(f"\n{Fore.CYAN}{'='*80}")
+        print(f"{Fore.CYAN}🚀 MySQL Processor 启动")
+        print(f"{Fore.CYAN}⏰ 时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+        print(f"{Fore.CYAN}📊 数据库: {len(databases)}个")
+        if tables and tables != ['*']:
+            print(f"{Fore.CYAN}📊 指定表: {len(tables)}个")
+        print(f"{Fore.CYAN}{'='*80}\n")
+
+    def log_database_start(self, database: str, operation: str):
+        """记录数据库操作开始"""
+        print(f"\n{Fore.GREEN}{'─'*60}")
+        print(f"{Fore.GREEN}🗄️ {operation.upper()} 数据库: {Fore.YELLOW}{database}")
+        print(f"{Fore.GREEN}{'─'*60}")
+
+    def log_database_complete(self, database: str, operation: str, duration: float):
+        """记录数据库操作完成"""
+        print(f"\n{Fore.GREEN}✅ {operation.upper()} 完成: {Fore.YELLOW}{database} {Fore.GREEN}(耗时: {duration:.2f}s)")
+
+    def log_table_progress(self, database: str, table: str, progress: float,
+                          current: int = 0, total: int = 0, speed: Optional[float] = None):
+        """记录表操作进度"""
+        bar_length = 30
+        filled_length = int(bar_length * progress // 100)
+        bar = '█' * filled_length + '░' * (bar_length - filled_length)
+
+        progress_str = f"[{bar}] {progress:5.1f}%"
+        if total > 0:
+            progress_str += f" ({current}/{total})"
+        if speed:
+            progress_str += f" {speed:.1f}MB/s"
+
+        print(f"\r{Fore.CYAN}📊 {database}.{table} {progress_str}", end="", flush=True)
+
+    def log_table_complete(self, database: str, table: str, duration: float, size_mb: float = 0):
+        """记录表操作完成"""
+        # 清除进度条行
+        print(f"\r{' ' * 100}\r", end="")
+        size_str = f" ({size_mb:.1f}MB)" if size_mb > 0 else ""
+        print(f"{Fore.GREEN}✅ {database}.{table}{size_str} 完成 (耗时: {duration:.2f}s)")
+
+    def log_batch_progress(self, operation: str, completed: int, total: int,
+                          failed: int = 0, eta: Optional[float] = None):
+        """记录批量操作进度"""
+        progress = (completed / total * 100) if total > 0 else 0
+
+        status_parts = [f"{completed}/{total}"]
+        if failed > 0:
+            status_parts.append(f"{Fore.RED}失败: {failed}")
+        if eta:
+            status_parts.append(f"ETA: {eta:.0f}s")
+
+        status_str = " | ".join(status_parts)
+        print(f"\n{Fore.YELLOW}📊 {operation}: {progress:.1f}% [{status_str}]")
+
+    def log_summary(self, results: list, total_duration: float):
+        """记录操作汇总"""
+        success_count = sum(1 for r in results if r.get('status') == 'success')
+        failed_count = len(results) - success_count
+
+        print(f"\n{Fore.CYAN}{'='*80}")
+        print(f"{Fore.CYAN}🎉 操作完成汇总")
+        print(f"{Fore.CYAN}{'='*80}")
+        print(f"{Fore.GREEN}✅ 成功: {success_count}")
+        if failed_count > 0:
+            print(f"{Fore.RED}❌ 失败: {failed_count}")
+        print(f"{Fore.CYAN}⏰ 总耗时: {total_duration:.2f}s")
+
+        # 显示失败详情
+        if failed_count > 0:
+            print(f"\n{Fore.RED}失败详情:")
+            for result in results:
+                if result.get('status') == 'failed':
+                    print(f"{Fore.RED}  - {result.get('database', 'Unknown')}: {result.get('error', 'Unknown error')}")
+
+    def log_cleanup(self, path: str):
+        """记录清理操作"""
+        print(f"{Fore.YELLOW}🧹 清理: {path}")
+
+    def log_error(self, message: str, *args, **kwargs):
+        """记录错误"""
+        context = kwargs.get('context', None)
+        context_str = f" - {context}" if context else ""
+        print(f"{Fore.RED}❌ 错误: {message}{context_str}")
+
+    def log_warning(self, message: str, *args, **kwargs):
+        """记录警告"""
+        print(f"{Fore.YELLOW}⚠️ 警告: {message}")
+
+    def log_info(self, message: str, *args, **kwargs):
+        """记录信息"""
+        print(f"{Fore.CYAN}ℹ️ {message}")
+
+    # 兼容旧接口的方法
+    def info(self, message: str, *args, **kwargs):
+        """兼容旧logger接口"""
+        self.log_info(str(message))
+
+    def error(self, message: str, *args, **kwargs):
+        """兼容旧logger接口"""
+        self.log_error(str(message))
+
+    def warning(self, message: str, *args, **kwargs):
+        """兼容旧logger接口"""
+        self.log_warning(str(message))
+
+    def debug(self, message: str, *args, **kwargs):
+        """兼容旧logger接口"""
+        print(f"{Fore.CYAN}🐛 {str(message)}")
+
+# 创建全局日志器实例
+logger = StructuredLogger()
+
+# 兼容旧接口
+class LegacyLogger:
+    """兼容旧版日志接口"""
+    @staticmethod
+    def info(msg, *args, **kwargs):
+        logger.info(msg)
+
+    @staticmethod
+    def error(msg, *args, **kwargs):
+        logger.error(msg)
+
+    @staticmethod
+    def warning(msg, *args, **kwargs):
+        logger.warning(msg)
+
+# 导出兼容对象
+logger_config = LegacyLogger()
