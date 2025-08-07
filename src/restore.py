@@ -103,9 +103,9 @@ class MyRestore(BaseShell):
         with tqdm(total=len(data_files), desc=f"导入 {database} 数据库", unit="文件") as pbar:
             def update_progress(result, file_name):
                 if result['success']:
-                    pbar.write(f"✓ {os.path.basename(file_name)} ({result['size_mb']:.1f}MB)")
+                    pbar.set_postfix_str(f"✓ {os.path.basename(file_name)} ({result['size_mb']:.1f}MB)")
                 else:
-                    pbar.write(f"✗ {os.path.basename(file_name)}")
+                    pbar.set_postfix_str(f"✗ {os.path.basename(file_name)}")
                 pbar.update(1)
                 return result
 
