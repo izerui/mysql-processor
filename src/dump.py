@@ -5,7 +5,7 @@ import time
 import concurrent.futures
 import re
 import configparser
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 
 
@@ -142,14 +142,20 @@ class MyDump(BaseShell):
 
         success_count = 0
         failed_tables = []
+        exported_total_size = 0.0  # 已导出的总大小
+
+        # 获取所有表的总大小
+        total_size_mb = self._get_database_tables_size(database, tables)
 
         # 使用tqdm的并发支持来正确显示进度
         with tqdm(total=len(tables), desc=f"导出 {database} 表数据", unit="表", dynamic_ncols=True, disable=False, file=sys.stdout, ascii=True) as pbar:
             def update_progress(result, table_name):
+                nonlocal exported_total_size
                 if result['success']:
-                    pbar.set_postfix_str(f"✓ {table_name} ({result['size_mb']:.1f}MB)")
+                    exported_total_size += result['original_size_mb']
+                    pbar.set_postfix_str(f"✓ {table_name} ({result['original_size_mb']:.1f}MB) 已导出: {exported_total_size:.1f}MB 库总: {total_size_mb:.1f}MB")
                 else:
-                    pbar.set_postfix_str(f"✗ {table_name}")
+                    pbar.set_postfix_str(f"✗ {table_name} 已导出: {exported_total_size:.1f}MB 库总: {total_size_mb:.1f}MB")
                 pbar.update(1)
                 return result
 
@@ -189,6 +195,44 @@ class MyDump(BaseShell):
 
 
         return success_count
+
+    def _get_database_tables_size(self, database: str, tables: List[str]) -> float:
+        """获取数据库中所有表的总大小（MB）"""
+        try:
+            import pymysql
+            connection = pymysql.connect(
+                host=self.mysql.db_host,
+                user=self.mysql.db_user,
+                password=self.mysql.db_pass,
+                port=int(self.mysql.db_port),
+                charset='utf8'
+            )
+
+            total_size = 0
+            with connection.cursor() as cursor:
+                # 获取每个表的大小
+                for table in tables:
+                    try:
+                        cursor.execute(f"""
+                            SELECT ROUND(((data_length + index_length) / 1024 / 1024), 2)
+                            AS 'Size (MB)'
+                            FROM information_schema.TABLES
+                            WHERE table_schema = '{database}'
+                            AND table_name = '{table}'
+                        """)
+                        result = cursor.fetchone()
+                        if result and result[0]:
+                            total_size += float(result[0])
+                    except Exception as e:
+                        logger.warning(f"获取表 {table} 大小时出错: {str(e)}")
+                        continue
+
+            connection.close()
+            return total_size
+
+        except Exception as e:
+            logger.error(f"获取数据库表总大小失败 - 数据库: {database}, 错误: {str(e)}")
+            return 0.0
 
     def _export_single_table(self, database: str, table: str, table_file: str,
                            mysqldump_path: str, mysqldump_bin_dir: str,
@@ -254,7 +298,8 @@ class MyDump(BaseShell):
                     return {
                         'success': True,
                         'duration': time.time() - start_time,
-                        'size_mb': 0
+                        'size_mb': 0,
+                        'original_size_mb': 0
                     }
 
                 # 处理大文件拆分
@@ -270,7 +315,8 @@ class MyDump(BaseShell):
                 return {
                     'success': True,
                     'duration': time.time() - start_time,
-                    'size_mb': file_size_mb
+                    'size_mb': file_size_mb,
+                    'original_size_mb': file_size_mb
                 }
             else:
                 # 空文件，不创建
@@ -287,7 +333,8 @@ class MyDump(BaseShell):
             return {
                 'success': False,
                 'duration': time.time() - start_time,
-                'error': str(e)
+                'error': str(e),
+                'original_size_mb': 0
             }
 
     def _get_all_tables(self, database: str) -> List[str]:
@@ -435,15 +482,51 @@ class MyDump(BaseShell):
     def _check_and_process_sql_file(self, file_path: str) -> bool:
         """检查SQL文件是否包含INSERT INTO语句，并添加指定的SQL语句"""
         try:
-            # 读取文件内容
-            with open(file_path, 'r', encoding='utf-8') as f:
-                content = f.read()
+            # 使用临时文件方式处理大文件
+            temp_file = file_path + '.tmp'
 
-            # 检查是否包含INSERT INTO语句
-            if not re.search(r'\bINSERT\s+INTO\b', content, re.IGNORECASE):
+            # 首先检查是否包含INSERT INTO
+            has_insert = False
+            with open(file_path, 'rb') as f:
+                buffer = b''
+                while True:
+                    chunk = f.read(65536)  # 64KB chunks
+                    if not chunk:
+                        if buffer:
+                            lines = buffer.split(b'\n')
+                            for line_bytes in lines:
+                                if line_bytes.strip():
+                                    try:
+                                        line = line_bytes.decode('utf-8').strip()
+                                    except UnicodeDecodeError:
+                                        line = line_bytes.decode('latin-1').strip()
+                                    if 'INSERT INTO' in line.upper():
+                                        has_insert = True
+                                        break
+                        break
+
+                    buffer += chunk
+                    lines = buffer.split(b'\n')
+                    buffer = lines[-1]
+
+                    for line_bytes in lines[:-1]:
+                        if line_bytes.strip():
+                            try:
+                                line = line_bytes.decode('utf-8').strip()
+                            except UnicodeDecodeError:
+                                line = line_bytes.decode('latin-1').strip()
+                            if 'INSERT INTO' in line.upper():
+                                has_insert = True
+                                break
+                        if has_insert:
+                            break
+                    if has_insert:
+                        break
+
+            if not has_insert:
                 return False
 
-            # 准备新的内容
+            # 准备头尾内容
             header = """set foreign_key_checks = 0;
 set unique_checks = 0;
 set autocommit=0;
@@ -455,14 +538,43 @@ set foreign_key_checks = 1;
 set unique_checks = 1;
 """
 
-            # 写入新的内容
-            with open(file_path, 'w', encoding='utf-8') as f:
-                f.write(header)
-                f.write(content)
-                f.write(footer)
+            # 使用流式处理写入新内容
+            with open(temp_file, 'w', encoding='utf-8') as out_f:
+                out_f.write(header)
 
+                # 逐行复制原文件内容
+                with open(file_path, 'rb') as in_f:
+                    buffer = b''
+                    while True:
+                        chunk = in_f.read(65536)
+                        if not chunk:
+                            if buffer:
+                                try:
+                                    content = buffer.decode('utf-8')
+                                except UnicodeDecodeError:
+                                    content = buffer.decode('latin-1')
+                                out_f.write(content)
+                            break
+
+                        buffer += chunk
+                        lines = buffer.split(b'\n')
+                        buffer = lines[-1]
+
+                        for line_bytes in lines[:-1]:
+                            try:
+                                line = line_bytes.decode('utf-8')
+                            except UnicodeDecodeError:
+                                line = line_bytes.decode('latin-1')
+                            out_f.write(line + '\n')
+
+                out_f.write(footer)
+
+            # 替换原文件
+            os.replace(temp_file, file_path)
             return True
 
         except Exception as e:
             logger.error(f"处理SQL文件时发生错误: {str(e)}")
+            if os.path.exists(temp_file):
+                os.remove(temp_file)
             return False
