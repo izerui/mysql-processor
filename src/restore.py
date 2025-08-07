@@ -93,7 +93,6 @@ class MyRestore(BaseShell):
             success_count = self._import_tables_data(database, data_files)
 
             if success_count == len(data_files):
-                logger.info(f"数据库 {database} 恢复完成，共导入 {success_count} 个文件")
                 return True
             else:
                 logger.error(f"导入失败: {len(data_files) - success_count} 个文件导入失败")
@@ -126,7 +125,6 @@ class MyRestore(BaseShell):
 
             if success:
                 elapsed_time = time.time() - start_time
-                logger.info(f"数据库结构导入成功 - 数据库: {database}, 耗时: {elapsed_time:.2f}秒")
                 return True
             else:
                 logger.error(f"数据库结构导入失败 - 数据库: {database}")
@@ -161,9 +159,7 @@ class MyRestore(BaseShell):
 
                 if file_size > 0:
                     data_files.append(file_path)
-                    logger.debug(f"发现数据文件: {file} ({file_size/1024/1024:.2f}MB)")
 
-        logger.info(f"共发现 {len(data_files)} 个数据文件")
         return data_files
 
     def _import_tables_data(self, database: str, data_files: List[str]) -> int:
