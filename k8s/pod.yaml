@@ -34,8 +34,8 @@ spec:
           subPath: mysql
       resources:
         requests:
-          memory: "12Gi"
-          cpu: "3000m"
+          memory: "8Gi"
+          cpu: "2000m"
       command: ["/bin/sh", "-c"]
       args:
         - |
@@ -48,6 +48,19 @@ spec:
       configMap:
         name: mysql-processor-config
     - name: shared-storage
-      emptyDir: {}
-#      persistentVolumeClaim:
-#        claimName: mysql-processor-pvc
+      persistentVolumeClaim:
+        claimName: mysql-processor-pvc
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mysql-processor-pvc
+  namespace: platform-yunji
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 100Gi
+  storageClassName: nfs
