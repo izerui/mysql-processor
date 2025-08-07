@@ -165,8 +165,7 @@ class StructuredLogger:
     def log_database_start(self, database: str, operation: str):
         """记录数据库操作开始"""
         print(f"\n{Fore.CYAN}{'=' * 80}")
-        print(f"{Fore.CYAN} 🚀 开始{operation}数据库")
-        print(f"{Fore.CYAN} 📊 数据库: {Fore.YELLOW}{database}")
+        print(f"{Fore.CYAN} 🚀 {operation}数据库: {Fore.YELLOW}{database}")
         print(f"{Fore.CYAN}{'=' * 80}\n")
 
     def log_database_complete(self, database: str, operation: str, duration: float):
