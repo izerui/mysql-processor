@@ -18,6 +18,28 @@ class MyDump(BaseShell):
     """
     使用mysqldump导出数据库备份 - 重构版
     提供清晰的进度显示和结构化日志
+
+    流式处理设计说明：
+    ==================
+
+    1. INSERT语句提取 (_iter_insert_lines):
+       - 使用64KB块读取，避免大文件内存占用
+       - 逐行解码处理，支持UTF-8和Latin-1编码
+       - 生成器模式，按需产生INSERT INTO语句
+
+    2. 大文件拆分 (_split_large_file):
+       - 流式处理INSERT行，不收集所有数据到内存
+       - current_lines只保存当前文件块内容
+       - 处理完立即写入文件，及时释放内存
+
+    3. 内存控制策略:
+       - 生成器 + 逐行处理 = 恒定内存占用
+       - 不缓存完整文件内容
+       - 二进制模式避免编码问题
+
+    4. 编码处理:
+       - UTF-8优先，失败时回退Latin-1
+       - 保留原始二进制数据的完整性
     """
 
     def __init__(self, mysql: Mysql, split_threshold_mb: int = 500, threads: int = 8):
@@ -317,7 +339,18 @@ class MyDump(BaseShell):
             return []
 
     def _split_large_file(self, temp_file: str, base_filename: str, max_size: int):
-        """使用二进制模式拆分文件，避免编码问题，只保留INSERT INTO开头的行"""
+        """使用流式处理拆分大文件，避免内存占用
+
+        流式拆分策略：
+        1. 直接处理生成器：不收集所有INSERT行到内存
+        2. 分块写入：current_lines只保存当前文件内容
+        3. 及时释放：写完一个文件立即清空缓存
+        4. 编码兼容：保留UTF-8/Latin-1处理逻辑
+
+        内存控制：
+        - 峰值内存 = 单个文件最大内容 + 64KB缓冲区
+        - 与原始文件大小无关，适合处理GB级文件
+        """
         base_name_without_ext = os.path.splitext(base_filename)[0]
         ext = os.path.splitext(base_filename)[1]
 
@@ -411,13 +444,19 @@ class MyDump(BaseShell):
             return False
 
     def _iter_insert_lines(self, file_path: str):
-        """生成器中逐个产生INSERT INTO行，避免内存占用
+        """生成器中逐个产生INSERT INTO行，实现真正的流式处理
+
+        流式处理机制：
+        1. 64KB块读取：避免一次性加载大文件到内存
+        2. 逐行解码：支持UTF-8和Latin-1编码回退
+        3. 生成器模式：按需产生INSERT语句，内存占用恒定
+        4. 二进制处理：保留原始数据完整性
 
         Args:
             file_path: SQL文件路径
 
         Yields:
-            str: 每个INSERT INTO行
+            str: 每个INSERT INTO行（已解码为字符串）
         """
         try:
             with open(file_path, 'rb') as f:
@@ -455,7 +494,14 @@ class MyDump(BaseShell):
             raise
 
     def _add_header_footer_to_file(self, file_path: str) -> bool:
-        """给文件添加头尾信息，只保留INSERT INTO语句"""
+        """给文件添加头尾信息，使用流式处理保留INSERT INTO语句
+
+        流式处理特点：
+        1. 复用 _iter_insert_lines 生成器，不重复内存占用
+        2. 临时文件方式，保证数据安全
+        3. 逐行写入，内存占用恒定
+        4. 保持原始编码处理逻辑
+        """
         try:
             # 准备头尾内容
             header_lines = [
