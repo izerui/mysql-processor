@@ -7,7 +7,7 @@ import re
 import configparser
 from typing import List, Optional
 
-from split_file_reader.split_file_writer import SplitFileWriter
+
 
 from colorama import Fore
 from tqdm import tqdm
@@ -305,24 +305,92 @@ class MyDump(BaseShell):
             return []
 
     def _split_large_file(self, temp_file: str, base_filename: str, max_size: int):
-        """使用SplitFileWriter进行高性能二进制文件拆分，保留现有文件名和大小逻辑"""
+        """使用二进制模式拆分文件，避免编码问题，只保留INSERT INTO开头的行"""
+        base_name_without_ext = os.path.splitext(base_filename)[0]
+        ext = os.path.splitext(base_filename)[1]
+
+        # 转换为字节
+        max_bytes = max_size
+        file_counter = 1
+
+        # 使用二进制模式逐行读取，避免编码问题
+        def insert_lines_generator():
+            """生成器：只产生INSERT INTO开头的行"""
+            try:
+                with open(temp_file, 'rb') as f:
+                    buffer = b''
+                    while True:
+                        chunk = f.read(65536)  # 64KB chunks
+                        if not chunk:
+                            if buffer:
+                                # 处理最后剩余的数据
+                                lines = buffer.split(b'\n')
+                                for line_bytes in lines:
+                                    if line_bytes.strip():
+                                        yield line_bytes
+                            break
+
+                        buffer += chunk
+                        lines = buffer.split(b'\n')
+                        buffer = lines[-1]  # 保存不完整的行
+
+                        for line_bytes in lines[:-1]:
+                            line_bytes = line_bytes.strip()
+                            if line_bytes:
+                                # 检查是否是INSERT INTO开头
+                                try:
+                                    line = line_bytes.decode('utf-8').strip()
+                                except UnicodeDecodeError:
+                                    line = line_bytes.decode('latin-1').strip()
+
+                                if line.upper().startswith('INSERT INTO'):
+                                    yield line_bytes
+            except Exception as e:
+                logger.error(f"读取文件时发生错误: {str(e)}")
+                raise
+
+        output_handle = None
         try:
-            base_name_without_ext = os.path.splitext(base_filename)[0]
-            ext = os.path.splitext(base_filename)[1]
+            # 开始拆分文件 - 使用二进制模式写入
+            current_output_file = f"{base_name_without_ext}.part{file_counter:03d}{ext}"
+            output_handle = open(current_output_file, 'wb')
 
-            # 使用生成器创建正确的文件名格式：part007.sql
-            def filename_generator():
-                counter = 1
-                while True:
-                    filename = f"{base_name_without_ext}.part{counter:03d}{ext}"
-                    yield open(filename, 'wb')
-                    counter += 1
+            current_file_size = 0
+            lines_written = 0
 
-            with open(temp_file, 'rb') as infile:
-                with SplitFileWriter(filename_generator(), max_size) as writer:
-                    # 使用shutil.copyfileobj进行高效复制
-                    shutil.copyfileobj(infile, writer)
+            for line in insert_lines_generator():
+                # 确保行以换行符结尾
+                if not line.endswith(b'\n'):
+                    line += b'\n'
+
+                line_size = len(line)
+
+                # 检查是否需要创建新文件（确保不截断行）
+                if current_file_size + line_size > max_bytes and lines_written > 0:
+                    output_handle.close()
+
+                    file_counter += 1
+                    current_output_file = f"{base_name_without_ext}.part{file_counter:03d}{ext}"
+                    output_handle = open(current_output_file, 'wb')
+                    current_file_size = 0
+                    lines_written = 0
+
+                # 直接写入原始字节数据，避免编码转换
+                output_handle.write(line)
+                current_file_size += line_size
+                lines_written += 1
+
+            # 关闭最后一个文件
+            if output_handle and not output_handle.closed:
+                output_handle.close()
+
+            # 如果没有INSERT INTO行，创建空文件
+            if file_counter == 1 and lines_written == 0:
+                with open(current_output_file, 'wb') as f:
+                    f.write(b'-- No INSERT statements found\n')
 
         except Exception as e:
-            logger.error(f"拆分文件时发生错误: {str(e)}")
+            if output_handle and not output_handle.closed:
+                output_handle.close()
+            logger.error(f"二进制模式拆分文件时发生错误: {str(e)}")
             raise
