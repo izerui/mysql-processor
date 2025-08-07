@@ -40,10 +40,16 @@ class MyDump(BaseShell):
         except Exception:
             return 500 * 1024 * 1024  # 默认500MB
 
-    def export_db(self, database: str, dump_file: str, tables: Optional[List[str]] = None):
+    def export_db(self, database: str, dump_file: str, tables: Optional[List[str]] = None, threads: int = 8):
         """
         使用mysqldump导出数据库结构，然后使用线程池分别导出每个表的数据
         提供清晰的进度显示
+
+        Args:
+            database: 数据库名称
+            dump_file: 导出文件路径
+            tables: 要导出的表列表，None表示所有表
+            threads: 并发导出线程数
         """
         try:
             # 确保输出目录存在
@@ -64,7 +70,7 @@ class MyDump(BaseShell):
                 return True
 
             # 第三步：导出表数据
-            success_count = self._export_tables_data(database, tables, dump_file, mysqldump_path, mysqldump_bin_dir)
+            success_count = self._export_tables_data(database, tables, dump_file, mysqldump_path, mysqldump_bin_dir, threads)
 
             if success_count == len(tables):
                 return True
@@ -126,7 +132,7 @@ class MyDump(BaseShell):
             return False
 
     def _export_tables_data(self, database: str, tables: List[str], dump_file: str,
-                          mysqldump_path: str, mysqldump_bin_dir: str) -> int:
+                          mysqldump_path: str, mysqldump_bin_dir: str, threads: int = 8) -> int:
         """并发导出所有表的数据"""
         db_folder = os.path.join(os.path.dirname(dump_file), database)
         os.makedirs(db_folder, exist_ok=True)
@@ -144,7 +150,7 @@ class MyDump(BaseShell):
                 pbar.update(1)
                 return result
 
-            with concurrent.futures.ThreadPoolExecutor(max_workers=8) as pool:
+            with concurrent.futures.ThreadPoolExecutor(max_workers=threads) as pool:
                 # 提交所有导出任务
                 futures = []
                 for table in tables:
@@ -262,6 +268,7 @@ class MyDump(BaseShell):
 
         except Exception as e:
             # 清理临时文件
+            temp_file = f"{table_file}.tmp"
             if os.path.exists(temp_file):
                 os.remove(temp_file)
             return {

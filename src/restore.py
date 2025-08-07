@@ -20,11 +20,12 @@ class MyRestore(BaseShell):
         super().__init__()
         self.mysql = mysql
 
-    def restore_db(self, database: str, dump_folder: str) -> bool:
+    def restore_db(self, database: str, dump_folder: str, threads: int = 8) -> bool:
         """
         从SQL文件导入整个数据库，提供清晰的进度显示
         :param database: 数据库名
         :param dump_folder: 导出文件夹路径
+        :param threads: 导入线程池数量
         :return: bool 成功返回True，失败返回False
         """
         start_time = time.time()
@@ -51,7 +52,7 @@ class MyRestore(BaseShell):
                 return True
 
             # 3. 并发导入表数据
-            success_count = self._import_tables_data(database, data_files)
+            success_count = self._import_tables_data(database, data_files, threads)
 
             total_duration = time.time() - start_time
             if success_count == len(data_files):
@@ -93,7 +94,7 @@ class MyRestore(BaseShell):
 
         return data_files
 
-    def _import_tables_data(self, database: str, data_files: List[str]) -> int:
+    def _import_tables_data(self, database: str, data_files: List[str], threads: int = 8) -> int:
         """并发导入所有表数据"""
         success_count = 0
         failed_files = []
@@ -108,7 +109,7 @@ class MyRestore(BaseShell):
                 pbar.update(1)
                 return result
 
-            with concurrent.futures.ThreadPoolExecutor(max_workers=8) as pool:
+            with concurrent.futures.ThreadPoolExecutor(max_workers=threads) as pool:
                 # 提交所有导入任务
                 futures = []
                 for sql_file in data_files:

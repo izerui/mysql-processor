@@ -69,6 +69,8 @@ def load_config() -> Dict[str, Any]:
         'databases': databases,
         'tables': tables if tables and tables != ['*'] else None,
         'delete_after_import': config.getboolean('global', 'delete_after_import', fallback=True),
+        'export_threads': config.getint('global', 'export_threads', fallback=8),
+        'import_threads': config.getint('global', 'import_threads', fallback=8),
         'source': {
             'host': config.get('source', 'db_host'),
             'port': config.get('source', 'db_port'),
@@ -94,7 +96,8 @@ def cleanup_dump_folder(dump_folder: Path) -> None:
 
 def process_single_database(db: str, tables: Optional[List[str]],
                           source: Dict[str, str], target: Dict[str, str],
-                          dump_folder: Path, delete_after_import: bool) -> Dict[str, Any]:
+                          dump_folder: Path, delete_after_import: bool,
+                          export_threads: int = 8, import_threads: int = 8) -> Dict[str, Any]:
     """处理单个数据库的完整流程"""
     result = {
         'database': db,
@@ -118,7 +121,7 @@ def process_single_database(db: str, tables: Optional[List[str]],
         logger.log_database_start(db, "导出")
 
         exporter = MyDump(source_mysql)
-        export_success = exporter.export_db(db, str(sql_file), tables)
+        export_success = exporter.export_db(db, str(sql_file), tables, export_threads)
 
         result['export_duration'] = time.time() - export_start
 
@@ -131,7 +134,7 @@ def process_single_database(db: str, tables: Optional[List[str]],
         import_start = time.time()
 
         importer = MyRestore(target_mysql)
-        import_success = importer.restore_db(db, str(dump_folder))
+        import_success = importer.restore_db(db, str(dump_folder), import_threads)
 
         result['import_duration'] = time.time() - import_start
 
@@ -193,7 +196,9 @@ def main():
             config['source'],
             config['target'],
             dump_folder,
-            config['delete_after_import']
+            config['delete_after_import'],
+            config['export_threads'],
+            config['import_threads']
         )
 
         results.append(result)

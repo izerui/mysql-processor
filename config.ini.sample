@@ -1,6 +1,19 @@
 [global]
-databases = p3
+databases = p3_file_storage
 tables = *
+# 文件拆分阈值，单位MB
+split_threshold = 50
+# 导入完成后是否删除导出的文件：true=删除，false=保留
+delete_after_import = false
+# 导出并发线程数，用于mydumper的--threads参数
+export_threads = 8
+# 导入线程池数量，用于并发导入SQL文件
+import_threads = 20
+
+# 导出并发线程数，用于mydumper的--threads参数
+export_threads = 8
+# 导入线程池数量，用于并发导入SQL文件
+import_threads = 8
 
 [source]
 db_host = 161.189.137.xxx
