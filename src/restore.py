@@ -50,7 +50,7 @@ class MyRestore(BaseShell):
                 return True
 
             # 3. 并发导入表数据
-            success_count = self._import_tables_data(database, data_files, threads)
+            success_count = self._import_tables_data(database, data_files)
 
             if success_count == len(data_files):
                 return True
