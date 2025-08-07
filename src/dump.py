@@ -245,25 +245,35 @@ class MyDump(BaseShell):
             if os.path.exists(table_file):
                 file_size = os.path.getsize(table_file)
 
+                # 检查文件是否包含INSERT INTO语句
+                has_insert = self._check_and_process_sql_file(table_file)
+
+                if not has_insert:
+                    # 如果没有INSERT INTO语句，删除文件
+                    os.remove(table_file)
+                    return {
+                        'success': True,
+                        'duration': time.time() - start_time,
+                        'size_mb': 0
+                    }
+
+                # 处理大文件拆分
                 if file_size > self.split_threshold:
-                    # 大文件需要拆分，先创建临时文件用于拆分
                     temp_file = f"{table_file}.tmp"
                     os.rename(table_file, temp_file)
                     self._split_large_file(temp_file, table_file, self.split_threshold)
                     os.remove(temp_file)
-                    # 文件已拆分，使用原始文件大小作为参考
                     file_size_mb = file_size / 1024 / 1024
                 else:
-                    # 小文件直接使用
                     file_size_mb = file_size / 1024 / 1024
+
                 return {
                     'success': True,
                     'duration': time.time() - start_time,
                     'size_mb': file_size_mb
                 }
             else:
-                # 空文件
-                open(table_file, 'w').close()
+                # 空文件，不创建
                 return {
                     'success': True,
                     'duration': time.time() - start_time,
@@ -313,6 +323,28 @@ class MyDump(BaseShell):
         max_bytes = max_size
         file_counter = 1
 
+        # 定义SQL头尾语句
+        header_lines = [
+            "set foreign_key_checks = 0;",
+            "set unique_checks = 0;",
+            "set autocommit=0;",
+            ""
+        ]
+        footer_lines = [
+            "",
+            "commit;",
+            "set foreign_key_checks = 1;",
+            "set unique_checks = 1;"
+        ]
+
+        header_bytes = '\n'.join(header_lines).encode('utf-8')
+        footer_bytes = '\n'.join(footer_lines).encode('utf-8')
+
+        # 计算头尾占用的空间
+        header_size = len(header_bytes)
+        footer_size = len(footer_bytes)
+        effective_max_bytes = max_bytes - header_size - footer_size
+
         # 使用二进制模式逐行读取，避免编码问题
         def insert_lines_generator():
             """生成器：只产生INSERT INTO开头的行"""
@@ -351,46 +383,86 @@ class MyDump(BaseShell):
 
         output_handle = None
         try:
-            # 开始拆分文件 - 使用二进制模式写入
-            current_output_file = f"{base_name_without_ext}.part{file_counter:03d}{ext}"
-            output_handle = open(current_output_file, 'wb')
+            # 收集所有INSERT INTO行
+            all_lines = list(insert_lines_generator())
 
-            current_file_size = 0
-            lines_written = 0
+            if not all_lines:
+                # 如果没有INSERT INTO行，不创建任何文件
+                return
 
-            for line in insert_lines_generator():
-                # 确保行以换行符结尾
+            # 开始拆分文件
+            current_lines = []
+            current_size = 0
+
+            for line in all_lines:
+                line_with_newline = line
                 if not line.endswith(b'\n'):
-                    line += b'\n'
+                    line_with_newline += b'\n'
 
-                line_size = len(line)
+                line_size = len(line_with_newline)
 
-                # 检查是否需要创建新文件（确保不截断行）
-                if current_file_size + line_size > max_bytes and lines_written > 0:
-                    output_handle.close()
-
-                    file_counter += 1
+                # 检查是否需要创建新文件
+                if current_size + line_size > effective_max_bytes and current_lines:
+                    # 写入当前文件
                     current_output_file = f"{base_name_without_ext}.part{file_counter:03d}{ext}"
-                    output_handle = open(current_output_file, 'wb')
-                    current_file_size = 0
-                    lines_written = 0
+                    with open(current_output_file, 'wb') as output_handle:
+                        output_handle.write(header_bytes)
+                        for line_data in current_lines:
+                            output_handle.write(line_data)
+                        output_handle.write(footer_bytes)
 
-                # 直接写入原始字节数据，避免编码转换
-                output_handle.write(line)
-                current_file_size += line_size
-                lines_written += 1
+                    # 重置计数器
+                    file_counter += 1
+                    current_lines = []
+                    current_size = 0
 
-            # 关闭最后一个文件
-            if output_handle and not output_handle.closed:
-                output_handle.close()
+                current_lines.append(line_with_newline)
+                current_size += line_size
 
-            # 如果没有INSERT INTO行，创建空文件
-            if file_counter == 1 and lines_written == 0:
-                with open(current_output_file, 'wb') as f:
-                    f.write(b'-- No INSERT statements found\n')
+            # 写入最后一个文件
+            if current_lines:
+                current_output_file = f"{base_name_without_ext}.part{file_counter:03d}{ext}"
+                with open(current_output_file, 'wb') as output_handle:
+                    output_handle.write(header_bytes)
+                    for line_data in current_lines:
+                        output_handle.write(line_data)
+                    output_handle.write(footer_bytes)
 
         except Exception as e:
-            if output_handle and not output_handle.closed:
-                output_handle.close()
-            logger.error(f"二进制模式拆分文件时发生错误: {str(e)}")
+            logger.error(f"拆分文件时发生错误: {str(e)}")
             raise
+
+    def _check_and_process_sql_file(self, file_path: str) -> bool:
+        """检查SQL文件是否包含INSERT INTO语句，并添加指定的SQL语句"""
+        try:
+            # 读取文件内容
+            with open(file_path, 'r', encoding='utf-8') as f:
+                content = f.read()
+
+            # 检查是否包含INSERT INTO语句
+            if not re.search(r'\bINSERT\s+INTO\b', content, re.IGNORECASE):
+                return False
+
+            # 准备新的内容
+            header = """set foreign_key_checks = 0;
+set unique_checks = 0;
+set autocommit=0;
+
+"""
+            footer = """
+commit;
+set foreign_key_checks = 1;
+set unique_checks = 1;
+"""
+
+            # 写入新的内容
+            with open(file_path, 'w', encoding='utf-8') as f:
+                f.write(header)
+                f.write(content)
+                f.write(footer)
+
+            return True
+
+        except Exception as e:
+            logger.error(f"处理SQL文件时发生错误: {str(e)}")
+            return False
