@@ -61,6 +61,7 @@ class MyDump(BaseShell):
             mysqldump_path = self._get_mysqldump_exe()
             mysqldump_bin_dir = os.path.dirname(mysqldump_path)
 
+            logger.log_start(database, "导出库结构")
             # 第一步：导出数据库结构
             if not self._export_structure(database, dump_file, mysqldump_path, mysqldump_bin_dir):
                 return False
@@ -72,6 +73,7 @@ class MyDump(BaseShell):
             if not tables:
                 return True
 
+            logger.log_start(database, "导出表数据")
             # 第三步：导出表数据
             success_count = self._export_tables_data(database, tables, dump_file, mysqldump_path, mysqldump_bin_dir, threads)
 

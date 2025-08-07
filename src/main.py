@@ -124,7 +124,6 @@ def process_single_database(db: str, tables: Optional[List[str]],
 
         # 导出阶段
         export_start = time.time()
-        logger.log_database_start(db, "导出")
 
         exporter = MyDump(source_mysql)
         export_success = exporter.export_db(db, str(sql_file), tables, export_threads)

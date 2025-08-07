@@ -139,11 +139,9 @@ class StructuredLogger:
             print(f"{Fore.CYAN}📊 指定表: {len(tables)}个")
         print(f"{Fore.CYAN}{'=' * 80}\n")
 
-    def log_database_start(self, database: str, operation: str):
+    def log_start(self, database: str, operation: str):
         """记录数据库操作开始"""
-        print(f"\n{Fore.CYAN}{'=' * 80}")
-        print(f"{Fore.CYAN} 🚀 {operation}数据库: {Fore.YELLOW}{database}")
-        print(f"{Fore.CYAN}{'=' * 80}\n")
+        print(f"{Fore.CYAN} 🚀 {operation}: {Fore.YELLOW}{database}")
 
     def log_summary(self, results: list, total_duration: float):
         """记录操作汇总"""

@@ -28,10 +28,8 @@ class MyRestore(BaseShell):
         :param threads: 导入线程池数量
         :return: bool 成功返回True，失败返回False
         """
-        start_time = time.time()
-        logger.log_database_start(database, "导入")
-
         try:
+            logger.log_start(database, "导入库结构")
             # 1. 导入数据库结构
             structure_file = os.path.join(dump_folder, f"{database}.sql")
             if not os.path.exists(structure_file):
@@ -51,10 +49,10 @@ class MyRestore(BaseShell):
             if not data_files:
                 return True
 
+            logger.log_start(database, "导入表数据")
             # 3. 并发导入表数据
             success_count = self._import_tables_data(database, data_files, threads)
 
-            total_duration = time.time() - start_time
             if success_count == len(data_files):
                 return True
             else:
