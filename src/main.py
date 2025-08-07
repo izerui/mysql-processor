@@ -90,7 +90,12 @@ def cleanup_dump_folder(dump_folder: Path) -> None:
     """清理历史导出目录"""
     if dump_folder.exists():
         import shutil
-        shutil.rmtree(dump_folder)
+        # 只删除目录内容，不删除目录本身（云盘挂载路径）
+        for item in dump_folder.iterdir():
+            if item.is_file():
+                item.unlink()
+            elif item.is_dir():
+                shutil.rmtree(item)
         logger.cleanup(str(dump_folder))
 
 
