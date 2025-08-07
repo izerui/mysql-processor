@@ -245,7 +245,7 @@ class MyDump(BaseShell):
                 file_size = os.path.getsize(table_file)
 
                 # 检查文件是否包含INSERT INTO语句
-                has_insert = self._check_and_process_sql_file(table_file)
+                has_insert = self._check_has_insert_sql(table_file)
 
                 if not has_insert:
                     # 如果没有INSERT INTO语句，删除文件
@@ -265,6 +265,8 @@ class MyDump(BaseShell):
                     os.remove(temp_file)
                     file_size_mb = file_size / 1024 / 1024
                 else:
+                    # 小文件，添加头尾信息
+                    self._add_header_footer_to_file(table_file)
                     file_size_mb = file_size / 1024 / 1024
 
                 return {
@@ -347,61 +349,27 @@ class MyDump(BaseShell):
         footer_size = len(footer_bytes)
         effective_max_bytes = max_bytes - header_size - footer_size
 
-        # 使用二进制模式逐行读取，避免编码问题
-        def insert_lines_generator():
-            """生成器：只产生INSERT INTO开头的行"""
-            try:
-                with open(temp_file, 'rb') as f:
-                    buffer = b''
-                    while True:
-                        chunk = f.read(65536)  # 64KB chunks
-                        if not chunk:
-                            if buffer:
-                                # 处理最后剩余的数据
-                                lines = buffer.split(b'\n')
-                                for line_bytes in lines:
-                                    if line_bytes.strip():
-                                        yield line_bytes
-                            break
-
-                        buffer += chunk
-                        lines = buffer.split(b'\n')
-                        buffer = lines[-1]  # 保存不完整的行
-
-                        for line_bytes in lines[:-1]:
-                            line_bytes = line_bytes.strip()
-                            if line_bytes:
-                                # 检查是否是INSERT INTO开头
-                                try:
-                                    line = line_bytes.decode('utf-8').strip()
-                                except UnicodeDecodeError:
-                                    line = line_bytes.decode('latin-1').strip()
-
-                                if line.upper().startswith('INSERT INTO'):
-                                    yield line_bytes
-            except Exception as e:
-                logger.error(f"读取文件时发生错误: {str(e)}")
-                raise
-
-        output_handle = None
         try:
             # 收集所有INSERT INTO行
-            all_lines = list(insert_lines_generator())
+            insert_lines = self._iter_insert_lines(temp_file)
 
-            if not all_lines:
-                # 如果没有INSERT INTO行，不创建任何文件
-                return
+            # 将文本行转换为字节行
+            byte_lines = []
+            for line in insert_lines:
+                if not line.endswith('\n'):
+                    line += '\n'
+                try:
+                    byte_line = line.encode('utf-8')
+                except UnicodeEncodeError:
+                    byte_line = line.encode('latin-1')
+                byte_lines.append(byte_line)
 
             # 开始拆分文件
             current_lines = []
             current_size = 0
 
-            for line in all_lines:
-                line_with_newline = line
-                if not line.endswith(b'\n'):
-                    line_with_newline += b'\n'
-
-                line_size = len(line_with_newline)
+            for byte_line in byte_lines:
+                line_size = len(byte_line)
 
                 # 检查是否需要创建新文件
                 if current_size + line_size > effective_max_bytes and current_lines:
@@ -418,7 +386,7 @@ class MyDump(BaseShell):
                     current_lines = []
                     current_size = 0
 
-                current_lines.append(line_with_newline)
+                current_lines.append(byte_line)
                 current_size += line_size
 
             # 写入最后一个文件
@@ -434,14 +402,26 @@ class MyDump(BaseShell):
             logger.error(f"拆分文件时发生错误: {str(e)}")
             raise
 
-    def _check_and_process_sql_file(self, file_path: str) -> bool:
-        """检查SQL文件是否包含INSERT INTO语句，并添加指定的SQL语句"""
+    def _check_has_insert_sql(self, file_path: str) -> bool:
+        """检查SQL文件是否包含INSERT INTO语句"""
         try:
-            # 使用临时文件方式处理大文件
-            temp_file = file_path + '.tmp'
+            for _ in self._iter_insert_lines(file_path):
+                return True
+            return False
+        except Exception as e:
+            logger.error(f"检查SQL文件时发生错误: {str(e)}")
+            return False
 
-            # 首先检查是否包含INSERT INTO
-            has_insert = False
+    def _iter_insert_lines(self, file_path: str):
+        """生成器中逐个产生INSERT INTO行，避免内存占用
+
+        Args:
+            file_path: SQL文件路径
+
+        Yields:
+            str: 每个INSERT INTO行
+        """
+        try:
             with open(file_path, 'rb') as f:
                 buffer = b''
                 while True:
@@ -455,9 +435,8 @@ class MyDump(BaseShell):
                                         line = line_bytes.decode('utf-8').strip()
                                     except UnicodeDecodeError:
                                         line = line_bytes.decode('latin-1').strip()
-                                    if 'INSERT INTO' in line.upper():
-                                        has_insert = True
-                                        break
+                                    if line.upper().startswith('INSERT INTO'):
+                                        yield line
                         break
 
                     buffer += chunk
@@ -465,63 +444,49 @@ class MyDump(BaseShell):
                     buffer = lines[-1]
 
                     for line_bytes in lines[:-1]:
-                        if line_bytes.strip():
+                        line_bytes = line_bytes.strip()
+                        if line_bytes:
                             try:
                                 line = line_bytes.decode('utf-8').strip()
                             except UnicodeDecodeError:
                                 line = line_bytes.decode('latin-1').strip()
-                            if 'INSERT INTO' in line.upper():
-                                has_insert = True
-                                break
-                        if has_insert:
-                            break
-                    if has_insert:
-                        break
+                            if line.upper().startswith('INSERT INTO'):
+                                yield line
+        except Exception as e:
+            logger.error(f"收集INSERT INTO行时发生错误: {str(e)}")
+            raise
 
-            if not has_insert:
-                return False
-
+    def _add_header_footer_to_file(self, file_path: str) -> bool:
+        """给文件添加头尾信息，只保留INSERT INTO语句"""
+        try:
             # 准备头尾内容
-            header = """set foreign_key_checks = 0;
-set unique_checks = 0;
-set autocommit=0;
+            header_lines = [
+                "set foreign_key_checks = 0;",
+                "set unique_checks = 0;",
+                "set autocommit=0;",
+                ""
+            ]
+            footer_lines = [
+                "",
+                "commit;",
+                "set foreign_key_checks = 1;",
+                "set unique_checks = 1;"
+            ]
 
-"""
-            footer = """
-commit;
-set foreign_key_checks = 1;
-set unique_checks = 1;
-"""
+            header = '\n'.join(header_lines)
+            footer = '\n'.join(footer_lines)
 
-            # 使用流式处理写入新内容
+            # 使用临时文件方式处理
+            temp_file = file_path + '.tmp'
+
+            # 收集所有INSERT INTO行
+            insert_lines = self._iter_insert_lines(file_path)
+
+            # 写入处理后的内容
             with open(temp_file, 'w', encoding='utf-8') as out_f:
                 out_f.write(header)
-
-                # 逐行复制原文件内容
-                with open(file_path, 'rb') as in_f:
-                    buffer = b''
-                    while True:
-                        chunk = in_f.read(65536)
-                        if not chunk:
-                            if buffer:
-                                try:
-                                    content = buffer.decode('utf-8')
-                                except UnicodeDecodeError:
-                                    content = buffer.decode('latin-1')
-                                out_f.write(content)
-                            break
-
-                        buffer += chunk
-                        lines = buffer.split(b'\n')
-                        buffer = lines[-1]
-
-                        for line_bytes in lines[:-1]:
-                            try:
-                                line = line_bytes.decode('utf-8')
-                            except UnicodeDecodeError:
-                                line = line_bytes.decode('latin-1')
-                            out_f.write(line + '\n')
-
+                for line in insert_lines:
+                    out_f.write('\n' + line)
                 out_f.write(footer)
 
             # 替换原文件
@@ -529,7 +494,7 @@ set unique_checks = 1;
             return True
 
         except Exception as e:
-            logger.error(f"处理SQL文件时发生错误: {str(e)}")
+            logger.error(f"添加头尾信息时发生错误: {str(e)}")
             if os.path.exists(temp_file):
                 os.remove(temp_file)
             return False
