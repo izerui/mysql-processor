@@ -31,8 +31,6 @@ class MyDump(BaseShell):
         """检查pv工具是否可用"""
         return shutil.which('pv') is not None
 
-
-
     def export_db(self, database: str, dump_file: str, tables: Optional[List[str]] = None):
         """
         使用mysqldump导出数据库结构，然后使用线程池分别导出每个表的数据
@@ -350,25 +348,22 @@ class MyDump(BaseShell):
         effective_max_bytes = max_bytes - header_size - footer_size
 
         try:
-            # 收集所有INSERT INTO行
+            # 流式处理INSERT INTO行，避免内存占用
             insert_lines = self._iter_insert_lines(temp_file)
 
-            # 将文本行转换为字节行
-            byte_lines = []
+            # 开始拆分文件 - 使用真正的流式处理
+            current_lines = []
+            current_size = 0
+
             for line in insert_lines:
+                # 处理每一行 - 保留原有的编码处理逻辑
                 if not line.endswith('\n'):
                     line += '\n'
                 try:
                     byte_line = line.encode('utf-8')
                 except UnicodeEncodeError:
                     byte_line = line.encode('latin-1')
-                byte_lines.append(byte_line)
 
-            # 开始拆分文件
-            current_lines = []
-            current_size = 0
-
-            for byte_line in byte_lines:
                 line_size = len(byte_line)
 
                 # 检查是否需要创建新文件
@@ -397,6 +392,9 @@ class MyDump(BaseShell):
                     for line_data in current_lines:
                         output_handle.write(line_data)
                     output_handle.write(footer_bytes)
+                file_counter += 1
+
+            return file_counter - 1
 
         except Exception as e:
             logger.error(f"拆分文件时发生错误: {str(e)}")
