@@ -129,29 +129,6 @@ class StructuredLogger:
         # 添加处理器
         self.logger.addHandler(console_handler)
 
-    def _format_message(self, level: str, message: str, context: Optional[Dict] = None) -> str:
-        """格式化消息"""
-        color = self.LEVEL_COLORS.get(level, '')
-        reset = Style.RESET_ALL
-
-        # 添加上下文信息
-        context_str = ""
-        if context:
-            context_parts = []
-            for key, value in context.items():
-                if key == 'progress':
-                    context_parts.append(f"{value:.1f}%")
-                elif key == 'time':
-                    context_parts.append(f"{value:.2f}s")
-                elif key == 'size':
-                    context_parts.append(f"{value:.2f}MB")
-                else:
-                    context_parts.append(f"{key}={value}")
-            if context_parts:
-                context_str = f" [{', '.join(context_parts)}]"
-
-        return f"{color}{message}{context_str}{reset}"
-
     def log_system_start(self, databases: list, tables: list):
         """记录系统启动信息"""
         print(f"\n{Fore.CYAN}{'=' * 80}")
@@ -167,38 +144,6 @@ class StructuredLogger:
         print(f"\n{Fore.CYAN}{'=' * 80}")
         print(f"{Fore.CYAN} 🚀 {operation}数据库: {Fore.YELLOW}{database}")
         print(f"{Fore.CYAN}{'=' * 80}\n")
-
-    def log_database_complete(self, database: str, operation: str, duration: float):
-        """记录数据库操作完成"""
-        print(f"\n{Fore.GREEN}{'=' * 80}")
-        print(f"{Fore.GREEN} 🎉 {operation.upper()}完成 🎉")
-        print(f"{Fore.GREEN} 📊 数据库: {Fore.YELLOW}{database}")
-        print(f"{Fore.GREEN} ⏰ 耗时: {duration:.2f} 秒")
-        print(f"{Fore.GREEN}{'=' * 80}\n")
-
-    def log_table_complete(self, database: str, table: str, duration: float, size_mb: float = 0):
-        """记录表操作完成"""
-        # 清除进度条行
-        print(f"\r{' ' * 100}\r", end="")
-        size_str = f" 📊 {size_mb:.1f}MB" if size_mb > 0 else ""
-        print(f"\n{Fore.MAGENTA}   ✨ 表操作完成 ✨")
-        print(f"{Fore.MAGENTA}   🗄️ {database}.{table}")
-        print(f"{Fore.MAGENTA}   ⏰ 耗时: {duration:.2f} 秒{size_str}")
-        print(f"{Fore.MAGENTA}   {'=' * 30}\n")
-
-    def log_batch_progress(self, operation: str, completed: int, total: int,
-                           failed: int = 0, eta: Optional[float] = None):
-        """记录批量操作进度"""
-        progress = (completed / total * 100) if total > 0 else 0
-
-        status_parts = [f"{completed}/{total}"]
-        if failed > 0:
-            status_parts.append(f"{Fore.RED}失败: {failed}")
-        if eta:
-            status_parts.append(f"ETA: {eta:.0f}s")
-
-        status_str = " | ".join(status_parts)
-        self.process(f"{operation}: {progress:.1f}% [{status_str}]")
 
     def log_summary(self, results: list, total_duration: float):
         """记录操作汇总"""
