@@ -144,18 +144,18 @@ class MyDump(BaseShell):
         failed_tables = []
         exported_total_size = 0.0  # 已导出的总大小
 
-        # 获取所有表的总大小
-        total_size_mb = self._get_database_tables_size(database, tables)
+
 
         # 使用tqdm的并发支持来正确显示进度
         with tqdm(total=len(tables), desc=f"导出 {database} 表数据", unit="表", dynamic_ncols=True, disable=False, file=sys.stdout, ascii=True) as pbar:
             def update_progress(result, table_name):
                 nonlocal exported_total_size
                 if result['success']:
-                    exported_total_size += result['original_size_mb']
-                    pbar.set_postfix_str(f"✓ {table_name} ({result['original_size_mb']:.1f}MB) 已导出: {exported_total_size:.1f}MB 库总: {total_size_mb:.1f}MB")
+                    exported_total_size = self._get_exported_files_size(db_folder)
+                    pbar.set_postfix_str(f"✓ {table_name} ({result['original_size_mb']:.1f}MB) 已导出: {exported_total_size:.1f}MB")
                 else:
-                    pbar.set_postfix_str(f"✗ {table_name} 已导出: {exported_total_size:.1f}MB 库总: {total_size_mb:.1f}MB")
+                    exported_total_size = self._get_exported_files_size(db_folder)
+                    pbar.set_postfix_str(f"✗ {table_name} 已导出: {exported_total_size:.1f}MB")
                 pbar.update(1)
                 return result
 
@@ -168,7 +168,6 @@ class MyDump(BaseShell):
                         self._export_single_table,
                         database, table, table_file,
                         mysqldump_path, mysqldump_bin_dir,
-                        1, 1  # 这些参数在进度显示中不再需要
                     )
                     # 添加回调来更新进度
                     future.add_done_callback(
@@ -196,47 +195,25 @@ class MyDump(BaseShell):
 
         return success_count
 
-    def _get_database_tables_size(self, database: str, tables: List[str]) -> float:
-        """获取数据库中所有表的总大小（MB）"""
+
+
+    def _get_exported_files_size(self, db_folder: str) -> float:
+        """获取已导出的SQL文件总大小（MB）"""
         try:
-            import pymysql
-            connection = pymysql.connect(
-                host=self.mysql.db_host,
-                user=self.mysql.db_user,
-                password=self.mysql.db_pass,
-                port=int(self.mysql.db_port),
-                charset='utf8'
-            )
-
-            total_size = 0
-            with connection.cursor() as cursor:
-                # 获取每个表的大小
-                for table in tables:
-                    try:
-                        cursor.execute(f"""
-                            SELECT ROUND(((data_length + index_length) / 1024 / 1024), 2)
-                            AS 'Size (MB)'
-                            FROM information_schema.TABLES
-                            WHERE table_schema = '{database}'
-                            AND table_name = '{table}'
-                        """)
-                        result = cursor.fetchone()
-                        if result and result[0]:
-                            total_size += float(result[0])
-                    except Exception as e:
-                        logger.warning(f"获取表 {table} 大小时出错: {str(e)}")
-                        continue
-
-            connection.close()
+            total_size = 0.0
+            if os.path.exists(db_folder):
+                for filename in os.listdir(db_folder):
+                    if filename.endswith('.sql'):
+                        file_path = os.path.join(db_folder, filename)
+                        if os.path.isfile(file_path):
+                            total_size += os.path.getsize(file_path) / 1024 / 1024
             return total_size
-
         except Exception as e:
-            logger.error(f"获取数据库表总大小失败 - 数据库: {database}, 错误: {str(e)}")
+            logger.error(f"计算导出文件总大小失败: {str(e)}")
             return 0.0
 
     def _export_single_table(self, database: str, table: str, table_file: str,
-                           mysqldump_path: str, mysqldump_bin_dir: str,
-                           current_num: int, total_tables: int) -> dict:
+                           mysqldump_path: str, mysqldump_bin_dir: str) -> dict:
         """导出单个表的数据"""
         start_time = time.time()
 
