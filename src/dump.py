@@ -183,6 +183,7 @@ class MyDump(BaseShell):
         success_count = 0
         failed_tables = []
         exported_total_size = 0.0  # 已导出的总大小
+        export_start_time = time.time()  # 记录开始时间
 
         # 使用tqdm显示进度条
         with tqdm(total=len(tables), desc=f"导出 {database} 表数据", unit="表", dynamic_ncols=True, disable=False,
@@ -193,12 +194,16 @@ class MyDump(BaseShell):
                 if result['success']:
                     # 计算已导出的总大小
                     exported_total_size = self._get_exported_files_size(db_folder)
-                    # 计算导出速度
-                    speed = f"{result['original_size_mb'] / result['duration']:.1f}MB/s" if result['duration'] > 0 else "0.0MB/s"
-                    pbar.set_postfix_str(f"✓ {table_name} ({result['original_size_mb']:.1f}MB, {speed}) 已导出: {exported_total_size:.1f}MB")
+                    # 计算从开始到现在的整体平均速度
+                    elapsed_time = time.time() - export_start_time
+                    overall_speed = f"{exported_total_size / elapsed_time:.1f}MB/s" if elapsed_time > 0 else "0.0MB/s"
+                    pbar.set_postfix_str(f"✓ {table_name} ({result['original_size_mb']:.1f}MB) 平均速度: {overall_speed} 已导出: {exported_total_size:.1f}MB")
                 else:
                     exported_total_size = self._get_exported_files_size(db_folder)
-                    pbar.set_postfix_str(f"✗ {table_name} 已导出: {exported_total_size:.1f}MB")
+                    # 即使失败也计算整体平均速度
+                    elapsed_time = time.time() - export_start_time
+                    overall_speed = f"{exported_total_size / elapsed_time:.1f}MB/s" if elapsed_time > 0 else "0.0MB/s"
+                    pbar.set_postfix_str(f"✗ {table_name} 平均速度: {overall_speed} 已导出: {exported_total_size:.1f}MB")
                 pbar.update(1)
                 return result
 

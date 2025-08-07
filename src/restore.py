@@ -182,6 +182,7 @@ class MyRestore(BaseShell):
         success_count = 0
         failed_files = []
         imported_total_size = 0.0  # 已导入的总大小（MB）
+        import_start_time = time.time()  # 记录开始时间
 
         # 使用tqdm创建进度条
         with tqdm(
@@ -197,18 +198,22 @@ class MyRestore(BaseShell):
             # 进度更新回调函数
             def update_progress(result, file_name):
                 nonlocal imported_total_size
+                # 计算从开始到现在的整体平均速度
+                elapsed_time = time.time() - import_start_time
+
                 if result['success']:
                     imported_total_size += result['size_mb']
-                    speed = f"{result['size_mb'] / result['duration']:.1f}MB/s" if result['duration'] > 0 else "0.0MB/s"
+                    avg_speed = f"{imported_total_size / elapsed_time:.1f}MB/s" if elapsed_time > 0 else "0.0MB/s"
                     pbar.set_postfix_str(
                         f"✓ {os.path.basename(file_name)} "
-                        f"({result['size_mb']:.1f}MB, {speed}) "
+                        f"({result['size_mb']:.1f}MB) 平均速度: {avg_speed} "
                         f"已导入: {imported_total_size:.1f}MB"
                     )
                 else:
                     imported_total_size += result['size_mb']
+                    avg_speed = f"{imported_total_size / elapsed_time:.1f}MB/s" if elapsed_time > 0 else "0.0MB/s"
                     pbar.set_postfix_str(
-                        f"✗ {os.path.basename(file_name)} 已导入: {imported_total_size:.1f}MB"
+                        f"✗ {os.path.basename(file_name)} 平均速度: {avg_speed} 已导入: {imported_total_size:.1f}MB"
                     )
                 pbar.update(1)
                 return result
