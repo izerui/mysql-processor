@@ -51,7 +51,7 @@ class MyDump(BaseShell):
         """检查pv工具是否可用（用于进度条显示）"""
         return shutil.which('pv') is not None
 
-    def export_db(self, database: str, dump_file: str, tables: Optional[List[str]] = None):
+    def export_db(self, database: str, dump_file: str):
         """
         主导出函数：导出整个数据库
 
@@ -65,7 +65,6 @@ class MyDump(BaseShell):
         Args:
             database: 要导出的数据库名称
             dump_file: 主SQL文件路径（包含结构）
-            tables: 指定要导出的表列表，None表示所有表
         """
         try:
             # 确保输出目录存在
@@ -79,20 +78,15 @@ class MyDump(BaseShell):
                 return False
 
             # 第二步：获取数据库的所有表
-            if tables is None or tables == ['*']:
-                tables = self._get_all_tables(database)
+            tables = self._get_all_tables(database)
 
             if not tables:
+                logger.warning(f"数据库 {database} 中没有需要导出的表")
                 return True
 
             # 第三步：并发导出表数据
-            success_count = self._export_tables_data(database, tables, dump_file, mysqldump_path, mysqldump_bin_dir)
-
-            if success_count == len(tables):
-                return True
-            else:
-                logger.error(f"导出失败: {len(tables) - success_count} 个表导出失败")
-                return False
+            success_count = self._export_tables_data(database, dump_file, mysqldump_path, mysqldump_bin_dir)
+            return success_count >= 0
 
         except Exception as e:
             logger.error(f"导出过程发生错误 - 数据库: {database}, 错误: {str(e)}")
@@ -160,7 +154,7 @@ class MyDump(BaseShell):
             logger.error(f"数据库结构导出失败 - 数据库: {database}, 错误: {str(e)}")
             return False
 
-    def _export_tables_data(self, database: str, tables: List[str], dump_file: str,
+    def _export_tables_data(self, database: str, dump_file: str,
                           mysqldump_path: str, mysqldump_bin_dir: str) -> int:
         """
         并发导出所有表的数据
@@ -169,7 +163,6 @@ class MyDump(BaseShell):
 
         Args:
             database: 数据库名称
-            tables: 要导出的表列表
             dump_file: 主SQL文件路径（用于确定输出目录）
             mysqldump_path: mysqldump可执行文件路径
             mysqldump_bin_dir: mysqldump所在目录
@@ -180,6 +173,12 @@ class MyDump(BaseShell):
         # 为每个数据库创建单独的文件夹存放表数据
         db_folder = os.path.join(os.path.dirname(dump_file), database)
         os.makedirs(db_folder, exist_ok=True)
+
+        # 获取数据库的所有表
+        tables = self._get_all_tables(database)
+        if not tables:
+            logger.warning(f"数据库 {database} 中没有需要导出的表")
+            return 0
 
         success_count = 0
         failed_tables = []

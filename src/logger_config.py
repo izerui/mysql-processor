@@ -132,14 +132,12 @@ class StructuredLogger:
         # 添加处理器
         self.logger.addHandler(console_handler)
 
-    def log_system_start(self, databases: list, tables: list):
+    def log_system_start(self, databases: list):
         """记录系统启动信息"""
         print(f"\n{Fore.CYAN}{'=' * 80}")
         print(f"{Fore.CYAN}🚀 MySQL Processor 启动")
         print(f"{Fore.CYAN}⏰ 时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
         print(f"{Fore.CYAN}📊 数据库: {len(databases)}个")
-        if tables and tables != ['*']:
-            print(f"{Fore.CYAN}📊 指定表: {len(tables)}个")
         print(f"{Fore.CYAN}{'=' * 80}\n")
 
     def log_start(self, message: str):

@@ -33,7 +33,7 @@ def ensure_mysql_installed() -> str:
             sys.exit(1)
         logger.info("✅ MySQL工具下载完成")
 
-    mysqldump_path = downloader.get_mysqldump_path()
+    mysqldump_path = str(downloader.get_mysqldump_path())
     mysql_dir = downloader.mysql_dir
 
     # 设置环境变量
@@ -59,7 +59,6 @@ def load_config() -> Dict[str, Any]:
 
     # 解析配置
     databases = [db.strip() for db in config.get('global', 'databases', fallback='').split(',') if db.strip()]
-    tables = [table.strip() for table in config.get('global', 'tables', fallback='').split(',') if table.strip()]
 
     if not databases:
         logger.error("配置文件中未指定数据库")
@@ -67,7 +66,6 @@ def load_config() -> Dict[str, Any]:
 
     return {
         'databases': databases,
-        'tables': tables if tables and tables != ['*'] else None,
         'delete_after_import': config.getboolean('global', 'delete_after_import', fallback=True),
         'export_threads': config.getint('global', 'export_threads', fallback=8),
         'import_threads': config.getint('global', 'import_threads', fallback=8),
@@ -100,7 +98,7 @@ def cleanup_dump_folder(dump_folder: Path) -> None:
         logger.cleanup(str(dump_folder))
 
 
-def process_single_database(db: str, tables: Optional[List[str]],
+def process_single_database(db: str,
                             source: Dict[str, str], target: Dict[str, str],
                             dump_folder: Path, delete_after_import: bool,
                             export_threads: int = 8, import_threads: int = 8, split_threshold_mb: int = 500) -> Dict[str, Any]:
@@ -127,7 +125,7 @@ def process_single_database(db: str, tables: Optional[List[str]],
         export_start = time.time()
 
         exporter = MyDump(source_mysql, split_threshold_mb, export_threads)
-        export_success = exporter.export_db(db, str(sql_file), tables)
+        export_success = exporter.export_db(db, str(sql_file))
 
         result['export_duration'] = time.time() - export_start
 
@@ -192,7 +190,7 @@ def main():
     config = load_config()
 
     # 记录系统启动信息
-    logger.log_system_start(config['databases'], config['tables'] or [])
+    logger.log_system_start(config['databases'])
 
     # 设置导出目录
     dump_folder = Path(__file__).parent.parent / 'dumps'
@@ -206,7 +204,6 @@ def main():
 
         result = process_single_database(
             db,
-            config['tables'],
             config['source'],
             config['target'],
             dump_folder,
