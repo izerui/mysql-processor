@@ -1,0 +1,68 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mysql-processor
+  namespace: platform-yunji
+  labels:
+    app: mysql-processor
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mysql-processor
+  template:
+    metadata:
+      labels:
+        app: mysql-processor
+    spec:
+      restartPolicy: Always
+      nodeSelector:
+        app-type: mysql-processor
+      tolerations:
+        - key: app-type
+          value: mysql-processor
+          operator: Equal
+          effect: NoSchedule
+      containers:
+        - name: mysql-processor
+          image: harbor.yunjizhizao.com/serv999/hub/izerui/mysql-processor:latest
+          imagePullPolicy: Always
+          env:
+            - name: PYTHONUNBUFFERED
+              value: "1"
+          volumeMounts:
+            - name: config
+              mountPath: /app/config.ini
+              subPath: config.ini
+              readOnly: true
+            - name: shared-storage
+              mountPath: /app/dumps
+              subPath: dumps
+            - name: shared-storage
+              mountPath: /app/mysql
+              subPath: mysql
+          resources:
+            requests:
+              memory: "12Gi"
+              cpu: "3000m"
+      volumes:
+        - name: config
+          configMap:
+            name: mysql-processor-config
+        - name: shared-storage
+          persistentVolumeClaim:
+            claimName: mysql-processor-pvc
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mysql-processor-pvc
+  namespace: platform-yunji
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 100Gi
+  storageClassName: nfs
