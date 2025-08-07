@@ -7,6 +7,8 @@ import re
 import configparser
 from typing import List, Optional
 
+from split_file_writer import SplitFileWriter
+
 from colorama import Fore
 from tqdm import tqdm
 
@@ -179,7 +181,7 @@ class MyDump(BaseShell):
                             success_count += 1
                         else:
                             failed_tables.append(table)
-                            logger.error(f"表导出失败 - 数据库: {database}, 表: {table}, 错误: {result['error']}")
+                            logger.error(f"\n表导出失败 - 数据库: {database}, 表: {table}, 错误: {result['error']}")
                     except Exception as e:
                         failed_tables.append(table)
                         logger.error(f"表导出异常 - 数据库: {database}, 表: {table}, 错误: {str(e)}")
@@ -303,61 +305,19 @@ class MyDump(BaseShell):
             return []
 
     def _split_large_file(self, temp_file: str, base_filename: str, max_size: int):
-        """将大文件按指定大小拆分成多个文件"""
+        """使用split-file-reader高性能拆分大文件，保留现有文件名和大小逻辑"""
         try:
-            file_number = 1
-            current_size = 0
-            current_file = None
+            base_name_without_ext = os.path.splitext(base_filename)[0]
+            ext = os.path.splitext(base_filename)[1]
 
-            total_size = os.path.getsize(temp_file)
-            processed_size = 0
+            # 使用split-file-writer进行高性能文件拆分
+            file_pattern = f"{base_name_without_ext}.part{{:03d}}{ext}"
 
-            with open(temp_file, 'r', encoding='utf-8') as f:
-                line_buffer = []
-                buffer_size_bytes = 0
-
-                for line in f:
-                    line_bytes = line.encode('utf-8')
-                    line_size = len(line_bytes)
-                    processed_size += line_size
-
-                    # 检查是否需要新文件
-                    if line.strip().startswith('INSERT INTO'):
-                        if current_file and current_size + buffer_size_bytes + line_size > max_size:
-                            current_file.write(''.join(line_buffer))
-                            line_buffer = []
-                            buffer_size_bytes = 0
-                            current_file.close()
-                            file_number += 1
-                            current_file = None
-                            current_size = 0
-
-                        if current_file is None:
-                            base_name_without_ext = os.path.splitext(base_filename)[0]
-                            ext = os.path.splitext(base_filename)[1]
-                            current_file = open(
-                                f"{base_name_without_ext}.part{file_number:03d}{ext}",
-                                'w', encoding='utf-8'
-                            )
-                            current_size = 0
-
-                    line_buffer.append(line)
-                    buffer_size_bytes += line_size
-
-                    if buffer_size_bytes >= 1024 * 1024:  # 1MB时写入
-                        if current_file:
-                            current_file.write(''.join(line_buffer))
-                            current_size += buffer_size_bytes
-                        line_buffer = []
-                        buffer_size_bytes = 0
-
-                # 写入剩余内容
-                if line_buffer and current_file:
-                    current_file.write(''.join(line_buffer))
-                    current_file.close()
-                elif current_file:
-                    current_file.close()
+            with open(temp_file, 'r', encoding='utf-8') as infile:
+                with SplitFileWriter(file_pattern, max_size) as writer:
+                    # 逐行读取并写入，保持内存使用低
+                    for line in infile:
+                        writer.write(line.encode('utf-8'))
 
         except Exception as e:
-            logger.error(f"拆分文件时发生错误: {str(e)}")
             raise
