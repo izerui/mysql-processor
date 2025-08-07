@@ -100,7 +100,7 @@ class MyRestore(BaseShell):
         failed_files = []
 
         # 使用tqdm的并发支持来正确显示进度
-        with tqdm(total=len(data_files), desc=f"导入 {database} 数据库", unit="文件", disable=False) as pbar:
+        with tqdm(total=len(data_files), desc=f"导入 {database} 数据库", unit="文件", file=sys.stdout, disable=False) as pbar:
             def update_progress(result, file_name):
                 if result['success']:
                     pbar.set_postfix_str(f"✓ {os.path.basename(file_name)} ({result['size_mb']:.1f}MB)")
