@@ -4,14 +4,14 @@
 import os
 import sys
 import time
-from pathlib import Path
 from configparser import ConfigParser
+from pathlib import Path
 from typing import List, Dict, Any, Optional
 
-from dump import MyDump
-from restore import MyRestore
 from base import Mysql
+from dump import MyDump
 from logger_config import logger
+from restore import MyRestore
 
 # 导入MySQL下载器
 try:
@@ -100,9 +100,9 @@ def cleanup_dump_folder(dump_folder: Path) -> None:
 
 
 def process_single_database(db: str, tables: Optional[List[str]],
-                          source: Dict[str, str], target: Dict[str, str],
-                          dump_folder: Path, delete_after_import: bool,
-                          export_threads: int = 8, import_threads: int = 8) -> Dict[str, Any]:
+                            source: Dict[str, str], target: Dict[str, str],
+                            dump_folder: Path, delete_after_import: bool,
+                            export_threads: int = 8, import_threads: int = 8) -> Dict[str, Any]:
     """处理单个数据库的完整流程"""
     result = {
         'database': db,
@@ -111,7 +111,8 @@ def process_single_database(db: str, tables: Optional[List[str]],
         'export_duration': 0,
         'import_duration': 0,
         'tables_exported': 0,
-        'tables_imported': 0
+        'tables_imported': 0,
+        'total_export_size_mb': 0
     }
 
     try:
@@ -148,6 +149,18 @@ def process_single_database(db: str, tables: Optional[List[str]],
             result['error'] = '导入失败'
             return result
 
+        # 计算导出文件总大小
+        total_size = 0
+        if sql_file.exists():
+            total_size += sql_file.stat().st_size
+
+        db_folder = dump_folder / db
+        if db_folder.exists():
+            for file_path in db_folder.rglob('*.sql'):
+                total_size += file_path.stat().st_size
+
+        result['total_export_size_mb'] = total_size / 1024 / 1024
+
         # 清理阶段
         if delete_after_import:
             # 删除数据库结构文件
@@ -155,7 +168,6 @@ def process_single_database(db: str, tables: Optional[List[str]],
                 sql_file.unlink()
 
             # 删除数据库目录
-            db_folder = dump_folder / db
             if db_folder.exists():
                 import shutil
                 shutil.rmtree(db_folder)
@@ -213,7 +225,8 @@ def main():
             logger.success(
                 f"数据库 {db} 处理完成 - 导出耗时: {result['export_duration']:.1f}s, "
                 f"导入耗时: {result['import_duration']:.1f}s, "
-                f"总耗时: {result['export_duration'] + result['import_duration']:.1f}s"
+                f"总耗时: {result['export_duration'] + result['import_duration']:.1f}s, "
+                f"导出文件: {result['total_export_size_mb']:.1f}MB"
             )
         else:
             logger.error(f"❌ 数据库 {db} 处理失败: {result['error']}")
