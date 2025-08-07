@@ -16,53 +16,56 @@ from logger_config import logger
 
 class MyDump(BaseShell):
     """
-    使用mysqldump导出数据库备份 - 重构版
-    提供清晰的进度显示和结构化日志
+    MySQL数据库备份导出工具类
 
-    流式处理设计说明：
-    ==================
+    功能特点：
+    1. 支持完整数据库结构导出
+    2. 支持并发导出表数据，提高导出效率
+    3. 支持大文件自动拆分，避免单个文件过大
+    4. 提供详细的进度显示和错误处理
+    5. 流式处理，内存占用低，适合处理大数据量
 
-    1. INSERT语句提取 (_iter_insert_lines):
-       - 使用64KB块读取，避免大文件内存占用
-       - 逐行解码处理，支持UTF-8和Latin-1编码
-       - 生成器模式，按需产生INSERT INTO语句
-
-    2. 大文件拆分 (_split_large_file):
-       - 流式处理INSERT行，不收集所有数据到内存
-       - current_lines只保存当前文件块内容
-       - 处理完立即写入文件，及时释放内存
-
-    3. 内存控制策略:
-       - 生成器 + 逐行处理 = 恒定内存占用
-       - 不缓存完整文件内容
-       - 二进制模式避免编码问题
-
-    4. 编码处理:
-       - UTF-8优先，失败时回退Latin-1
-       - 保留原始二进制数据的完整性
+    导出流程：
+    1. 导出数据库结构（表结构、索引等）
+    2. 并发导出每个表的数据
+    3. 对大文件进行拆分处理
+    4. 添加必要的SQL头尾信息
     """
 
     def __init__(self, mysql: Mysql, split_threshold_mb: int = 500, threads: int = 8):
+        """
+        初始化MyDump实例
+
+        Args:
+            mysql: MySQL连接配置对象
+            split_threshold_mb: 文件拆分阈值（MB），超过此大小的文件会被拆分
+            threads: 并发导出线程数
+        """
         super().__init__()
-        self.mysql = mysql
-        self.use_pv = self._check_pv_available()
+        self.mysql = mysql  # MySQL连接配置
+        self.use_pv = self._check_pv_available()  # 检查是否安装了pv工具（进度显示）
         self.split_threshold = split_threshold_mb * 1024 * 1024  # 转换为字节
-        self.threads = threads
+        self.threads = threads  # 并发线程数
 
     def _check_pv_available(self):
-        """检查pv工具是否可用"""
+        """检查pv工具是否可用（用于进度条显示）"""
         return shutil.which('pv') is not None
 
     def export_db(self, database: str, dump_file: str, tables: Optional[List[str]] = None):
         """
-        使用mysqldump导出数据库结构，然后使用线程池分别导出每个表的数据
-        提供清晰的进度显示
+        主导出函数：导出整个数据库
+
+        执行流程：
+        1. 创建输出目录
+        2. 导出数据库结构
+        3. 获取所有表列表
+        4. 并发导出每个表的数据
+        5. 汇总导出结果
 
         Args:
-            database: 数据库名称
-            dump_file: 导出文件路径
-            tables: 要导出的表列表，None表示所有表
-            threads: 并发导出线程数
+            database: 要导出的数据库名称
+            dump_file: 主SQL文件路径（包含结构）
+            tables: 指定要导出的表列表，None表示所有表
         """
         try:
             # 确保输出目录存在
@@ -82,7 +85,7 @@ class MyDump(BaseShell):
             if not tables:
                 return True
 
-            # 第三步：导出表数据
+            # 第三步：并发导出表数据
             success_count = self._export_tables_data(database, tables, dump_file, mysqldump_path, mysqldump_bin_dir)
 
             if success_count == len(tables):
@@ -96,8 +99,26 @@ class MyDump(BaseShell):
             return False
 
     def _export_structure(self, database: str, dump_file: str, mysqldump_path: str, mysqldump_bin_dir: str) -> bool:
-        """导出数据库结构"""
+        """
+        导出数据库结构（不包含数据）
+
+        导出的结构包括：
+        - 数据库创建语句
+        - 所有表的CREATE TABLE语句
+        - 索引定义
+        - 约束定义
+
+        Args:
+            database: 数据库名称
+            dump_file: 输出文件路径
+            mysqldump_path: mysqldump可执行文件路径
+            mysqldump_bin_dir: mysqldump所在目录
+
+        Returns:
+            bool: 导出成功返回True，失败返回False
+        """
         try:
+            # 构建mysqldump命令，只导出结构
             cmd = (
                 f'{mysqldump_path} '
                 f'-h {self.mysql.db_host} '
@@ -105,30 +126,25 @@ class MyDump(BaseShell):
                 f'-p"{self.mysql.db_pass}" '
                 f'--port={self.mysql.db_port} '
                 f'--default-character-set=utf8 '
-                f'--set-gtid-purged=OFF '
-                f'--skip-routines '
-                f'--skip-triggers '
-                f'--skip-add-locks '
-                f'--disable-keys '
-                f'--skip-events '
-                f'--skip-set-charset '
-                f'--add-drop-database '
-                f'--extended-insert '
-                f'--complete-insert '
-                f'--quick '
-                f'--no-autocommit '
-                f'--single-transaction '
-                f'--skip-lock-tables '
-                f'--no-autocommit '
-                f'--compress '
-                f'--skip-tz-utc '
-                f'--max-allowed-packet=256M '
-                f'--net-buffer-length=1048576 '
-                f'--no-data '
-                f'--skip-set-charset '
-                f'--skip-comments '
-                f'--compact '
-                f'--set-gtid-purged=OFF '
+                f'--set-gtid-purged=OFF '  # 不导出GTID信息
+                f'--skip-routines '  # 跳过存储过程和函数
+                f'--skip-triggers '  # 跳过触发器
+                f'--skip-add-locks '  # 跳过锁表语句
+                f'--disable-keys '  # 禁用外键检查
+                f'--skip-events '  # 跳过事件
+                f'--skip-set-charset '  # 跳过字符集设置
+                f'--add-drop-database '  # 添加删除数据库语句
+                f'--extended-insert '  # 使用扩展插入格式
+                f'--complete-insert '  # 使用完整的列名
+                f'--quick '  # 快速导出，逐行读取
+                f'--no-autocommit '  # 禁用自动提交
+                f'--single-transaction '  # 使用一致性快照
+                f'--skip-lock-tables '  # 不锁表
+                f'--compress '  # 压缩传输
+                f'--skip-tz-utc '  # 不设置时区
+                f'--max-allowed-packet=256M '  # 最大包大小
+                f'--net-buffer-length=1048576 '  # 网络缓冲区大小
+                f'--no-data '  # 关键：不导出数据
                 f'--databases {database}'
             )
 
@@ -146,7 +162,22 @@ class MyDump(BaseShell):
 
     def _export_tables_data(self, database: str, tables: List[str], dump_file: str,
                           mysqldump_path: str, mysqldump_bin_dir: str) -> int:
-        """并发导出所有表的数据"""
+        """
+        并发导出所有表的数据
+
+        使用线程池并发导出每个表的数据，提供实时进度显示
+
+        Args:
+            database: 数据库名称
+            tables: 要导出的表列表
+            dump_file: 主SQL文件路径（用于确定输出目录）
+            mysqldump_path: mysqldump可执行文件路径
+            mysqldump_bin_dir: mysqldump所在目录
+
+        Returns:
+            int: 成功导出的表数量
+        """
+        # 为每个数据库创建单独的文件夹存放表数据
         db_folder = os.path.join(os.path.dirname(dump_file), database)
         os.makedirs(db_folder, exist_ok=True)
 
@@ -154,13 +185,16 @@ class MyDump(BaseShell):
         failed_tables = []
         exported_total_size = 0.0  # 已导出的总大小
 
-        # 使用tqdm的并发支持来正确显示进度
+        # 使用tqdm显示进度条
         with tqdm(total=len(tables), desc=f"导出 {database} 表数据", unit="表", dynamic_ncols=True, disable=False,
                   file=sys.stdout, ascii=True) as pbar:
             def update_progress(result, table_name):
+                """更新进度条显示"""
                 nonlocal exported_total_size
                 if result['success']:
+                    # 计算已导出的总大小
                     exported_total_size = self._get_exported_files_size(db_folder)
+                    # 计算导出速度
                     speed = f"{result['original_size_mb'] / result['duration']:.1f}MB/s" if result['duration'] > 0 else "0.0MB/s"
                     pbar.set_postfix_str(f"✓ {table_name} ({result['original_size_mb']:.1f}MB, {speed}) 已导出: {exported_total_size:.1f}MB")
                 else:
@@ -169,6 +203,7 @@ class MyDump(BaseShell):
                 pbar.update(1)
                 return result
 
+            # 使用线程池并发导出
             with concurrent.futures.ThreadPoolExecutor(max_workers=self.threads) as pool:
                 # 提交所有导出任务
                 futures = []
@@ -204,7 +239,15 @@ class MyDump(BaseShell):
         return success_count
 
     def _get_exported_files_size(self, db_folder: str) -> float:
-        """获取已导出的SQL文件总大小（MB）"""
+        """
+        计算已导出的SQL文件总大小
+
+        Args:
+            db_folder: 数据库导出文件夹路径
+
+        Returns:
+            float: 总大小（MB）
+        """
         try:
             total_size = 0.0
             if os.path.exists(db_folder):
@@ -220,10 +263,33 @@ class MyDump(BaseShell):
 
     def _export_single_table(self, database: str, table: str, table_file: str,
                              mysqldump_path: str, mysqldump_bin_dir: str) -> dict:
-        """导出单个表的数据"""
+        """
+        导出单个表的数据
+
+        处理逻辑：
+        1. 使用mysqldump导出表数据
+        2. 检查文件是否包含有效数据（INSERT语句）
+        3. 对大文件进行拆分处理
+        4. 对小文件添加头尾信息
+
+        Args:
+            database: 数据库名称
+            table: 表名称
+            table_file: 输出文件路径
+            mysqldump_path: mysqldump可执行文件路径
+            mysqldump_bin_dir: mysqldump所在目录
+
+        Returns:
+            dict: 包含导出结果的字典
+                - success: 是否成功
+                - duration: 耗时（秒）
+                - size_mb: 文件大小（MB）
+                - error: 错误信息（如果有）
+        """
         start_time = time.time()
 
         try:
+            # 构建mysqldump命令，只导出数据
             cmd = (
                 f'{mysqldump_path} '
                 f'-h {self.mysql.db_host} '
@@ -241,12 +307,9 @@ class MyDump(BaseShell):
                 f'--single-transaction '
                 f'--skip-lock-tables '
                 f'--no-autocommit '
-                f'--no-create-info '
-                f'--skip-set-charset '
-                # f'--skip-comments '
-                f'--compact '
-                f'--set-gtid-purged=OFF '
-                f'--quick '
+                f'--no-create-info '  # 关键：不导出表结构
+                f'--compact '  # 紧凑格式
+                f'--quick '  # 快速导出
                 f'{database} {table}'
             )
 
@@ -260,7 +323,7 @@ class MyDump(BaseShell):
             if not success:
                 raise RuntimeError(f"表数据导出失败，exit code: {exit_code}")
 
-            # 处理文件
+            # 处理导出的文件
             if os.path.exists(table_file):
                 file_size = os.path.getsize(table_file)
 
@@ -268,7 +331,7 @@ class MyDump(BaseShell):
                 has_insert = self._check_has_insert_sql(table_file)
 
                 if not has_insert:
-                    # 如果没有INSERT INTO语句，删除文件
+                    # 如果没有INSERT INTO语句，说明表为空，删除文件
                     os.remove(table_file)
                     return {
                         'success': True,
@@ -315,7 +378,15 @@ class MyDump(BaseShell):
             }
 
     def _get_all_tables(self, database: str) -> List[str]:
-        """获取数据库中的所有表名"""
+        """
+        获取数据库中的所有表名
+
+        Args:
+            database: 数据库名称
+
+        Returns:
+            List[str]: 表名列表（已排序）
+        """
         try:
             import pymysql
             connection = pymysql.connect(
@@ -339,7 +410,8 @@ class MyDump(BaseShell):
             return []
 
     def _split_large_file(self, temp_file: str, base_filename: str, max_size: int):
-        """使用流式处理拆分大文件，避免内存占用
+        """
+        使用流式处理拆分大文件，避免内存占用
 
         流式拆分策略：
         1. 直接处理生成器：不收集所有INSERT行到内存
@@ -350,6 +422,11 @@ class MyDump(BaseShell):
         内存控制：
         - 峰值内存 = 单个文件最大内容 + 64KB缓冲区
         - 与原始文件大小无关，适合处理GB级文件
+
+        Args:
+            temp_file: 临时文件路径
+            base_filename: 基础文件名
+            max_size: 最大文件大小（字节）
         """
         base_name_without_ext = os.path.splitext(base_filename)[0]
         ext = os.path.splitext(base_filename)[1]
@@ -434,7 +511,15 @@ class MyDump(BaseShell):
             raise
 
     def _check_has_insert_sql(self, file_path: str) -> bool:
-        """检查SQL文件是否包含INSERT INTO语句"""
+        """
+        检查SQL文件是否包含INSERT INTO语句
+
+        Args:
+            file_path: SQL文件路径
+
+        Returns:
+            bool: 包含INSERT语句返回True，否则返回False
+        """
         try:
             for _ in self._iter_insert_lines(file_path):
                 return True
@@ -444,7 +529,8 @@ class MyDump(BaseShell):
             return False
 
     def _iter_insert_lines(self, file_path: str):
-        """生成器中逐个产生INSERT INTO行，实现真正的流式处理
+        """
+        生成器中逐个产生INSERT INTO行，实现真正的流式处理
 
         流式处理机制：
         1. 64KB块读取：避免一次性加载大文件到内存
@@ -464,6 +550,7 @@ class MyDump(BaseShell):
                 while True:
                     chunk = f.read(65536)  # 64KB chunks
                     if not chunk:
+                        # 处理剩余缓冲区
                         if buffer:
                             lines = buffer.split(b'\n')
                             for line_bytes in lines:
@@ -478,7 +565,7 @@ class MyDump(BaseShell):
 
                     buffer += chunk
                     lines = buffer.split(b'\n')
-                    buffer = lines[-1]
+                    buffer = lines[-1]  # 保留不完整的行
 
                     for line_bytes in lines[:-1]:
                         line_bytes = line_bytes.strip()
@@ -494,13 +581,20 @@ class MyDump(BaseShell):
             raise
 
     def _add_header_footer_to_file(self, file_path: str) -> bool:
-        """给文件添加头尾信息，使用流式处理保留INSERT INTO语句
+        """
+        给文件添加头尾信息，使用流式处理保留INSERT INTO语句
 
         流式处理特点：
         1. 复用 _iter_insert_lines 生成器，不重复内存占用
         2. 临时文件方式，保证数据安全
         3. 逐行写入，内存占用恒定
         4. 保持原始编码处理逻辑
+
+        Args:
+            file_path: SQL文件路径
+
+        Returns:
+            bool: 处理成功返回True，失败返回False
         """
         try:
             # 准备头尾内容
@@ -508,10 +602,8 @@ class MyDump(BaseShell):
                 "set foreign_key_checks = 0;",
                 "set unique_checks = 0;",
                 "set autocommit=0;",
-                ""
             ]
             footer_lines = [
-                "",
                 "commit;",
                 "set foreign_key_checks = 1;",
                 "set unique_checks = 1;"
@@ -520,7 +612,7 @@ class MyDump(BaseShell):
             header = '\n'.join(header_lines)
             footer = '\n'.join(footer_lines)
 
-            # 使用临时文件方式处理
+            # 使用临时文件方式处理，避免数据丢失
             temp_file = file_path + '.tmp'
 
             # 收集所有INSERT INTO行
@@ -533,7 +625,7 @@ class MyDump(BaseShell):
                     out_f.write('\n' + line)
                 out_f.write(footer)
 
-            # 替换原文件
+            # 原子替换原文件
             os.replace(temp_file, file_path)
             return True
 
