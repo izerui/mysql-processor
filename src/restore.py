@@ -115,7 +115,8 @@ class MyRestore(BaseShell):
                 for sql_file in data_files:
                     future = pool.submit(
                         self._import_single_table,
-                        sql_file, database, 1, 1  # 这些参数在进度显示中不再需要
+                        sql_file,
+                        database
                     )
                     # 添加回调来更新进度
                     future.add_done_callback(
@@ -144,8 +145,7 @@ class MyRestore(BaseShell):
 
         return success_count
 
-    def _import_single_table(self, sql_file: str, database: str,
-                           current_num: int, total_files: int) -> Dict[str, Any]:
+    def _import_single_table(self, sql_file: str, database: str) -> Dict[str, Any]:
         """导入单个表的数据"""
         start_time = time.time()
 
