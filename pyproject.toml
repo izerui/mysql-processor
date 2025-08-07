@@ -2,9 +2,7 @@
 name = "mysql-processor"
 version = "0.1.0"
 description = "MySQL数据库备份导出导入工具 - 使用mydumper/myloader高性能方案"
-authors = [
-    {name = "MySQL Processor Team", email = "team@example.com"}
-]
+authors = [{ name = "MySQL Processor Team", email = "team@example.com" }]
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
@@ -12,15 +10,11 @@ dependencies = [
     "tqdm>=4.66.0",
     "configparser>=5.3.0",
     "colorama>=0.4.6",
+    "pymysql>=1.1.1",
 ]
 
 [project.optional-dependencies]
-dev = [
-    "pytest>=7.4.0",
-    "black>=23.0.0",
-    "isort>=5.12.0",
-    "flake8>=6.0.0",
-]
+dev = ["pytest>=7.4.0", "black>=23.0.0", "isort>=5.12.0", "flake8>=6.0.0"]
 
 [project.scripts]
 mysql-processor = "src.main:main"
