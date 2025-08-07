@@ -46,9 +46,6 @@ class MyDump(BaseShell):
         提供清晰的进度显示
         """
         try:
-            # 清理已存在的文件和目录
-            self._cleanup_existing_files(dump_file, database)
-
             # 确保输出目录存在
             os.makedirs(os.path.dirname(dump_file), exist_ok=True)
 
@@ -78,17 +75,6 @@ class MyDump(BaseShell):
         except Exception as e:
             logger.error(f"导出过程发生错误 - 数据库: {database}, 错误: {str(e)}")
             return False
-
-    def _cleanup_existing_files(self, dump_file: str, database: str):
-        """清理已存在的文件和目录"""
-        # 删除已存在的数据库结构文件
-        if os.path.exists(dump_file):
-            os.remove(dump_file)
-
-        # 删除已存在的数据库文件夹
-        db_folder = os.path.join(os.path.dirname(dump_file), database)
-        if os.path.exists(db_folder):
-            shutil.rmtree(db_folder)
 
     def _export_structure(self, database: str, dump_file: str, mysqldump_path: str, mysqldump_bin_dir: str) -> bool:
         """导出数据库结构"""
