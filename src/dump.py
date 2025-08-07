@@ -20,28 +20,20 @@ class MyDump(BaseShell):
     提供清晰的进度显示和结构化日志
     """
 
-    def __init__(self, mysql: Mysql):
+    def __init__(self, mysql: Mysql, split_threshold_mb: int = 500, threads: int = 8):
         super().__init__()
         self.mysql = mysql
         self.use_pv = self._check_pv_available()
-        self.split_threshold = self._get_split_threshold()
+        self.split_threshold = split_threshold_mb * 1024 * 1024  # 转换为字节
+        self.threads = threads
 
     def _check_pv_available(self):
         """检查pv工具是否可用"""
         return shutil.which('pv') is not None
 
-    def _get_split_threshold(self):
-        """从配置文件读取文件拆分阈值"""
-        try:
-            config = configparser.ConfigParser()
-            config_path = os.path.join(os.path.dirname(__file__), '..', 'config.ini')
-            config.read(config_path, encoding='utf-8')
-            threshold = config.getint('global', 'split_threshold', fallback=500)
-            return threshold * 1024 * 1024  # 转换为字节
-        except Exception:
-            return 500 * 1024 * 1024  # 默认500MB
 
-    def export_db(self, database: str, dump_file: str, tables: Optional[List[str]] = None, threads: int = 8):
+
+    def export_db(self, database: str, dump_file: str, tables: Optional[List[str]] = None):
         """
         使用mysqldump导出数据库结构，然后使用线程池分别导出每个表的数据
         提供清晰的进度显示
@@ -71,8 +63,7 @@ class MyDump(BaseShell):
                 return True
 
             # 第三步：导出表数据
-            success_count = self._export_tables_data(database, tables, dump_file, mysqldump_path, mysqldump_bin_dir,
-                                                     threads)
+            success_count = self._export_tables_data(database, tables, dump_file, mysqldump_path, mysqldump_bin_dir)
 
             if success_count == len(tables):
                 return True
@@ -134,7 +125,7 @@ class MyDump(BaseShell):
             return False
 
     def _export_tables_data(self, database: str, tables: List[str], dump_file: str,
-                            mysqldump_path: str, mysqldump_bin_dir: str, threads: int = 8) -> int:
+                          mysqldump_path: str, mysqldump_bin_dir: str) -> int:
         """并发导出所有表的数据"""
         db_folder = os.path.join(os.path.dirname(dump_file), database)
         os.makedirs(db_folder, exist_ok=True)
@@ -158,7 +149,7 @@ class MyDump(BaseShell):
                 pbar.update(1)
                 return result
 
-            with concurrent.futures.ThreadPoolExecutor(max_workers=threads) as pool:
+            with concurrent.futures.ThreadPoolExecutor(max_workers=self.threads) as pool:
                 # 提交所有导出任务
                 futures = []
                 for table in tables:

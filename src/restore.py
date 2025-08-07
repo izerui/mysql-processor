@@ -16,11 +16,12 @@ class MyRestore(BaseShell):
     提供清晰的进度显示和结构化日志
     """
 
-    def __init__(self, mysql: Mysql):
+    def __init__(self, mysql: Mysql, threads: int = 8):
         super().__init__()
         self.mysql = mysql
+        self.threads = threads
 
-    def restore_db(self, database: str, dump_folder: str, threads: int = 8) -> bool:
+    def restore_db(self, database: str, dump_folder: str) -> bool:
         """
         从SQL文件导入整个数据库，提供清晰的进度显示
         :param database: 数据库名
@@ -90,7 +91,7 @@ class MyRestore(BaseShell):
 
         return data_files
 
-    def _import_tables_data(self, database: str, data_files: List[str], threads: int = 8) -> int:
+    def _import_tables_data(self, database: str, data_files: List[str]) -> int:
         """并发导入所有表数据"""
         success_count = 0
         failed_files = []
@@ -108,7 +109,7 @@ class MyRestore(BaseShell):
                 pbar.update(1)
                 return result
 
-            with concurrent.futures.ThreadPoolExecutor(max_workers=threads) as pool:
+            with concurrent.futures.ThreadPoolExecutor(max_workers=self.threads) as pool:
                 # 提交所有导入任务
                 futures = []
                 for sql_file in data_files:

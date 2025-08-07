@@ -71,6 +71,7 @@ def load_config() -> Dict[str, Any]:
         'delete_after_import': config.getboolean('global', 'delete_after_import', fallback=True),
         'export_threads': config.getint('global', 'export_threads', fallback=8),
         'import_threads': config.getint('global', 'import_threads', fallback=8),
+        'split_threshold_mb': config.getint('global', 'split_threshold', fallback=500),
         'source': {
             'host': config.get('source', 'db_host'),
             'port': config.get('source', 'db_port'),
@@ -102,7 +103,7 @@ def cleanup_dump_folder(dump_folder: Path) -> None:
 def process_single_database(db: str, tables: Optional[List[str]],
                             source: Dict[str, str], target: Dict[str, str],
                             dump_folder: Path, delete_after_import: bool,
-                            export_threads: int = 8, import_threads: int = 8) -> Dict[str, Any]:
+                            export_threads: int = 8, import_threads: int = 8, split_threshold_mb: int = 500) -> Dict[str, Any]:
     """处理单个数据库的完整流程"""
     result = {
         'database': db,
@@ -125,8 +126,8 @@ def process_single_database(db: str, tables: Optional[List[str]],
         # 导出阶段
         export_start = time.time()
 
-        exporter = MyDump(source_mysql)
-        export_success = exporter.export_db(db, str(sql_file), tables, export_threads)
+        exporter = MyDump(source_mysql, split_threshold_mb, export_threads)
+        export_success = exporter.export_db(db, str(sql_file), tables)
 
         result['export_duration'] = time.time() - export_start
 
@@ -138,8 +139,8 @@ def process_single_database(db: str, tables: Optional[List[str]],
         # 导入阶段
         import_start = time.time()
 
-        importer = MyRestore(target_mysql)
-        import_success = importer.restore_db(db, str(dump_folder), import_threads)
+        importer = MyRestore(target_mysql, import_threads)
+        import_success = importer.restore_db(db, str(dump_folder))
 
         result['import_duration'] = time.time() - import_start
 
@@ -211,7 +212,8 @@ def main():
             dump_folder,
             config['delete_after_import'],
             config['export_threads'],
-            config['import_threads']
+            config['import_threads'],
+            config['split_threshold_mb']
         )
 
         results.append(result)
