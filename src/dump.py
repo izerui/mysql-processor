@@ -142,12 +142,13 @@ class MyDump(BaseShell):
         failed_tables = []
 
         # 使用tqdm的并发支持来正确显示进度
-        with tqdm(total=len(tables), desc=f"导出 {database} 表数据", unit="表", file=sys.stdout, disable=False) as pbar:
+        with tqdm(total=len(tables), desc=f"导出 {database} 表数据", unit="表") as pbar:
             def update_progress(result, table_name):
                 if result['success']:
-                    pbar.set_postfix_str(f"✓ {table_name} ({result['size_mb']:.1f}MB)")
+                    # pbar.set_postfix_str(f"✓ {table_name} ({result['size_mb']:.1f}MB)")
+                    pbar.write(f"✓ {table_name} ({result['size_mb']:.1f}MB)")
                 else:
-                    pbar.set_postfix_str(f"✗ {table_name}")
+                    pbar.write(f"✗ {table_name}")
                 pbar.update(1)
                 return result
 
