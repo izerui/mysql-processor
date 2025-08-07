@@ -7,7 +7,7 @@ import re
 import configparser
 from typing import List, Optional
 
-from split_file_writer import SplitFileWriter
+from split_file_reader.split_file_writer import SplitFileWriter
 
 from colorama import Fore
 from tqdm import tqdm
@@ -181,7 +181,7 @@ class MyDump(BaseShell):
                             success_count += 1
                         else:
                             failed_tables.append(table)
-                            logger.error(f"\n表导出失败 - 数据库: {database}, 表: {table}, 错误: {result['error']}")
+                            logger.error(f"表导出失败 - 数据库: {database}, 表: {table}, 错误: {result['error']}")
                     except Exception as e:
                         failed_tables.append(table)
                         logger.error(f"表导出异常 - 数据库: {database}, 表: {table}, 错误: {str(e)}")
@@ -305,19 +305,19 @@ class MyDump(BaseShell):
             return []
 
     def _split_large_file(self, temp_file: str, base_filename: str, max_size: int):
-        """使用split-file-reader高性能拆分大文件，保留现有文件名和大小逻辑"""
+        """使用SplitFileWriter进行高性能二进制文件拆分，保留现有文件名和大小逻辑"""
         try:
             base_name_without_ext = os.path.splitext(base_filename)[0]
             ext = os.path.splitext(base_filename)[1]
 
-            # 使用split-file-writer进行高性能文件拆分
+            # 使用SplitFileWriter进行高性能文件拆分
             file_pattern = f"{base_name_without_ext}.part{{:03d}}{ext}"
 
-            with open(temp_file, 'r', encoding='utf-8') as infile:
+            with open(temp_file, 'rb') as infile:
                 with SplitFileWriter(file_pattern, max_size) as writer:
-                    # 逐行读取并写入，保持内存使用低
-                    for line in infile:
-                        writer.write(line.encode('utf-8'))
+                    # 使用shutil.copyfileobj进行高效复制
+                    shutil.copyfileobj(infile, writer)
 
         except Exception as e:
+            logger.error(f"拆分文件时发生错误: {str(e)}")
             raise
