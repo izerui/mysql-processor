@@ -77,7 +77,6 @@ class BaseShell(object):
             if exitcode == 0:
                 return True, exitcode, all_output
             else:
-                logger.error(f'❌ 命令执行失败 (exit code: {exitcode})')
                 return False, exitcode, all_output
 
         except Exception as e:

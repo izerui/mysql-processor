@@ -229,7 +229,7 @@ def main():
                 f"导出文件: {result['total_export_size_mb']:.1f}MB"
             )
         else:
-            logger.error(f"❌ 数据库 {db} 处理失败: {result['error']}")
+            logger.error(f"数据库 {db} 处理失败: {result['error']}")
 
     # 文件监控已暂时屏蔽，无需停止
     pass
