@@ -48,5 +48,6 @@ spec:
       configMap:
         name: mysql-processor-config
     - name: shared-storage
-      persistentVolumeClaim:
-        claimName: mysql-processor-pvc
+      emptyDir: {}
+#      persistentVolumeClaim:
+#        claimName: mysql-processor-pvc
