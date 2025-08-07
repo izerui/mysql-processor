@@ -43,8 +43,8 @@ spec:
               subPath: mysql
           resources:
             requests:
-              memory: "12Gi"
-              cpu: "3000m"
+              memory: "8Gi"
+              cpu: "2000m"
       volumes:
         - name: config
           configMap:
