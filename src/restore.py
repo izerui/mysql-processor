@@ -98,14 +98,17 @@ class MyRestore(BaseShell):
         """并发导入所有表数据"""
         success_count = 0
         failed_files = []
+        imported_total_size = 0.0  # 已导入的总大小
 
         # 使用tqdm的并发支持来正确显示进度
         with tqdm(total=len(data_files), desc=f"导入 {database} 数据库", unit="文件", dynamic_ncols=True, disable=False, file=sys.stdout, ascii=True) as pbar:
             def update_progress(result, file_name):
+                nonlocal imported_total_size
                 if result['success']:
-                    pbar.set_postfix_str(f"✓ {os.path.basename(file_name)} ({result['size_mb']:.1f}MB)")
+                    imported_total_size += result['size_mb']
+                    pbar.set_postfix_str(f"✓ {os.path.basename(file_name)} ({result['size_mb']:.1f}MB) 已导入: {imported_total_size:.1f}MB")
                 else:
-                    pbar.set_postfix_str(f"✗ {os.path.basename(file_name)}")
+                    pbar.set_postfix_str(f"✗ {os.path.basename(file_name)} 已导入: {imported_total_size:.1f}MB")
                 pbar.update(1)
                 return result
 
