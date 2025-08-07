@@ -624,7 +624,7 @@ class MyDump(BaseShell):
                 out_f.write(header)
                 for line in insert_lines:
                     out_f.write('\n' + line)
-                out_f.write(footer)
+                out_f.write('\n' + footer + '\n')
 
             # 原子替换原文件
             os.replace(temp_file, file_path)
