@@ -310,7 +310,8 @@ class MyDump(BaseShell):
                 f'--no-create-info '  # 关键：不导出表结构
                 f'--compact '  # 紧凑格式
                 f'--quick '  # 快速导出
-                f'{database} {table}'
+                f'--databases {database} '
+                f'--tables {table}'
             )
 
             # 直接导出到表名.sql文件
