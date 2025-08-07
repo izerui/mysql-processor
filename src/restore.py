@@ -121,7 +121,6 @@ class MyRestore(BaseShell):
         """
         try:
             start_time = time.time()
-            logger.info(f"开始导入数据库结构 - 数据库: {database}")
 
             success = self._execute_import(structure_file, database)
 
@@ -380,7 +379,6 @@ class MyRestore(BaseShell):
                 )
 
                 if commit_success:
-                    logger.debug(f"SQL文件导入成功: {os.path.basename(sql_file)}")
                     return True
                 else:
                     error_msg = "\n".join([line for line in commit_output if line.strip()])
