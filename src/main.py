@@ -200,9 +200,6 @@ def main():
 
     # 处理所有数据库
     results = []
-    total_databases = len(config['databases'])
-
-    logger.info(f"开始处理 {total_databases} 个数据库...")
 
     for idx, db in enumerate(config['databases'], 1):
 

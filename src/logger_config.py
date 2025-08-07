@@ -104,9 +104,12 @@ class StructuredLogger:
         """兼容旧logger接口"""
         print(f"{Fore.CYAN}🐛 {str(message)}")
 
-    def success(self, message: str, *args, **kwargs):
+    def success(self, message: str, total_duration: float = None):
         """兼容旧logger接口"""
-        print(f"{Fore.GREEN}✅ {str(message)}")
+        msg = f"{Fore.GREEN}✅ {str(message)}"
+        if total_duration:
+            msg += f" | 耗时: {(time.time() - total_duration):.2f} 秒"
+        print(msg)
 
     def setup_logger(self):
         """设置日志器"""
@@ -139,9 +142,10 @@ class StructuredLogger:
             print(f"{Fore.CYAN}📊 指定表: {len(tables)}个")
         print(f"{Fore.CYAN}{'=' * 80}\n")
 
-    def log_start(self, database: str, operation: str):
+    def log_start(self, message: str):
         """记录数据库操作开始"""
-        print(f"{Fore.CYAN} 🚀 {operation}: {Fore.YELLOW}{database}")
+        print(f"{Fore.CYAN}🚀 {message}")
+        return time.time()
 
     def log_summary(self, results: list, total_duration: float):
         """记录操作汇总"""

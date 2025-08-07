@@ -7,8 +7,6 @@ import re
 import configparser
 from typing import List, Optional, Tuple
 
-
-
 from colorama import Fore
 from tqdm import tqdm
 
@@ -61,7 +59,6 @@ class MyDump(BaseShell):
             mysqldump_path = self._get_mysqldump_exe()
             mysqldump_bin_dir = os.path.dirname(mysqldump_path)
 
-            logger.log_start(database, "导出库结构")
             # 第一步：导出数据库结构
             if not self._export_structure(database, dump_file, mysqldump_path, mysqldump_bin_dir):
                 return False
@@ -73,9 +70,9 @@ class MyDump(BaseShell):
             if not tables:
                 return True
 
-            logger.log_start(database, "导出表数据")
             # 第三步：导出表数据
-            success_count = self._export_tables_data(database, tables, dump_file, mysqldump_path, mysqldump_bin_dir, threads)
+            success_count = self._export_tables_data(database, tables, dump_file, mysqldump_path, mysqldump_bin_dir,
+                                                     threads)
 
             if success_count == len(tables):
                 return True
@@ -137,7 +134,7 @@ class MyDump(BaseShell):
             return False
 
     def _export_tables_data(self, database: str, tables: List[str], dump_file: str,
-                          mysqldump_path: str, mysqldump_bin_dir: str, threads: int = 8) -> int:
+                            mysqldump_path: str, mysqldump_bin_dir: str, threads: int = 8) -> int:
         """并发导出所有表的数据"""
         db_folder = os.path.join(os.path.dirname(dump_file), database)
         os.makedirs(db_folder, exist_ok=True)
@@ -146,15 +143,15 @@ class MyDump(BaseShell):
         failed_tables = []
         exported_total_size = 0.0  # 已导出的总大小
 
-
-
         # 使用tqdm的并发支持来正确显示进度
-        with tqdm(total=len(tables), desc=f"导出 {database} 表数据", unit="表", dynamic_ncols=True, disable=False, file=sys.stdout, ascii=True) as pbar:
+        with tqdm(total=len(tables), desc=f"导出 {database} 表数据", unit="表", dynamic_ncols=True, disable=False,
+                  file=sys.stdout, ascii=True) as pbar:
             def update_progress(result, table_name):
                 nonlocal exported_total_size
                 if result['success']:
                     exported_total_size = self._get_exported_files_size(db_folder)
-                    pbar.set_postfix_str(f"✓ {table_name} ({result['original_size_mb']:.1f}MB) 已导出: {exported_total_size:.1f}MB")
+                    pbar.set_postfix_str(
+                        f"✓ {table_name} ({result['original_size_mb']:.1f}MB) 已导出: {exported_total_size:.1f}MB")
                 else:
                     exported_total_size = self._get_exported_files_size(db_folder)
                     pbar.set_postfix_str(f"✗ {table_name} 已导出: {exported_total_size:.1f}MB")
@@ -193,11 +190,7 @@ class MyDump(BaseShell):
                         failed_tables.append(table)
                         logger.error(f"表导出异常 - 数据库: {database}, 表: {table}, 错误: {str(e)}")
 
-
-
         return success_count
-
-
 
     def _get_exported_files_size(self, db_folder: str) -> float:
         """获取已导出的SQL文件总大小（MB）"""
@@ -215,7 +208,7 @@ class MyDump(BaseShell):
             return 0.0
 
     def _export_single_table(self, database: str, table: str, table_file: str,
-                           mysqldump_path: str, mysqldump_bin_dir: str) -> dict:
+                             mysqldump_path: str, mysqldump_bin_dir: str) -> dict:
         """导出单个表的数据"""
         start_time = time.time()
 

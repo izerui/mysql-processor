@@ -29,7 +29,6 @@ class MyRestore(BaseShell):
         :return: bool 成功返回True，失败返回False
         """
         try:
-            logger.log_start(database, "导入库结构")
             # 1. 导入数据库结构
             structure_file = os.path.join(dump_folder, f"{database}.sql")
             if not os.path.exists(structure_file):
@@ -49,7 +48,6 @@ class MyRestore(BaseShell):
             if not data_files:
                 return True
 
-            logger.log_start(database, "导入表数据")
             # 3. 并发导入表数据
             success_count = self._import_tables_data(database, data_files, threads)
 
