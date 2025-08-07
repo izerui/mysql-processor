@@ -141,8 +141,8 @@ class MyDump(BaseShell):
                 nonlocal exported_total_size
                 if result['success']:
                     exported_total_size = self._get_exported_files_size(db_folder)
-                    pbar.set_postfix_str(
-                        f"✓ {table_name} ({result['original_size_mb']:.1f}MB) 已导出: {exported_total_size:.1f}MB")
+                    speed = f"{result['original_size_mb'] / result['duration']:.1f}MB/s" if result['duration'] > 0 else "0.0MB/s"
+                    pbar.set_postfix_str(f"✓ {table_name} ({result['original_size_mb']:.1f}MB, {speed}) 已导出: {exported_total_size:.1f}MB")
                 else:
                     exported_total_size = self._get_exported_files_size(db_folder)
                     pbar.set_postfix_str(f"✗ {table_name} 已导出: {exported_total_size:.1f}MB")

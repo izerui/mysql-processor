@@ -103,8 +103,10 @@ class MyRestore(BaseShell):
                 nonlocal imported_total_size
                 if result['success']:
                     imported_total_size += result['size_mb']
-                    pbar.set_postfix_str(f"✓ {os.path.basename(file_name)} ({result['size_mb']:.1f}MB) 已导入: {imported_total_size:.1f}MB")
+                    speed = f"{result['size_mb'] / result['duration']:.1f}MB/s" if result['duration'] > 0 else "0.0MB/s"
+                    pbar.set_postfix_str(f"✓ {os.path.basename(file_name)} ({result['size_mb']:.1f}MB, {speed}) 已导入: {imported_total_size:.1f}MB")
                 else:
+                    imported_total_size += result['size_mb']
                     pbar.set_postfix_str(f"✗ {os.path.basename(file_name)} 已导入: {imported_total_size:.1f}MB")
                 pbar.update(1)
                 return result
@@ -115,8 +117,7 @@ class MyRestore(BaseShell):
                 for sql_file in data_files:
                     future = pool.submit(
                         self._import_single_table,
-                        sql_file,
-                        database
+                        sql_file, database, 1, 1  # 这些参数在进度显示中不再需要
                     )
                     # 添加回调来更新进度
                     future.add_done_callback(
@@ -145,7 +146,8 @@ class MyRestore(BaseShell):
 
         return success_count
 
-    def _import_single_table(self, sql_file: str, database: str) -> Dict[str, Any]:
+    def _import_single_table(self, sql_file: str, database: str,
+                           current_num: int, total_files: int) -> Dict[str, Any]:
         """导入单个表的数据"""
         start_time = time.time()
 
