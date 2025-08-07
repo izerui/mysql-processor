@@ -231,9 +231,8 @@ class MyDump(BaseShell):
                 f'{database} {table}'
             )
 
-            # 先导出到临时文件
-            temp_file = f"{table_file}.tmp"
-            full_command = f'{cmd} > {temp_file}'
+            # 直接导出到表名.sql文件
+            full_command = f'{cmd} > {table_file}'
 
             success, exit_code, output = self._exe_command(
                 full_command, cwd=mysqldump_bin_dir
@@ -243,18 +242,20 @@ class MyDump(BaseShell):
                 raise RuntimeError(f"表数据导出失败，exit code: {exit_code}")
 
             # 处理文件
-            if os.path.exists(temp_file):
-                file_size = os.path.getsize(temp_file)
+            if os.path.exists(table_file):
+                file_size = os.path.getsize(table_file)
 
                 if file_size > self.split_threshold:
+                    # 大文件需要拆分，先创建临时文件用于拆分
+                    temp_file = f"{table_file}.tmp"
+                    os.rename(table_file, temp_file)
                     self._split_large_file(temp_file, table_file, self.split_threshold)
                     os.remove(temp_file)
                     # 文件已拆分，使用原始文件大小作为参考
                     file_size_mb = file_size / 1024 / 1024
                 else:
-                    # 小文件直接重命名
-                    os.rename(temp_file, table_file)
-                    file_size_mb = os.path.getsize(table_file) / 1024 / 1024
+                    # 小文件直接使用
+                    file_size_mb = file_size / 1024 / 1024
                 return {
                     'success': True,
                     'duration': time.time() - start_time,
@@ -270,10 +271,9 @@ class MyDump(BaseShell):
                 }
 
         except Exception as e:
-            # 清理临时文件
-            temp_file = f"{table_file}.tmp"
-            if os.path.exists(temp_file):
-                os.remove(temp_file)
+            # 清理可能存在的文件
+            if os.path.exists(table_file):
+                os.remove(table_file)
             return {
                 'success': False,
                 'duration': time.time() - start_time,
@@ -310,11 +310,16 @@ class MyDump(BaseShell):
             base_name_without_ext = os.path.splitext(base_filename)[0]
             ext = os.path.splitext(base_filename)[1]
 
-            # 使用SplitFileWriter进行高性能文件拆分
-            file_pattern = f"{base_name_without_ext}.part{{:03d}}{ext}"
+            # 使用生成器创建正确的文件名格式：part007.sql
+            def filename_generator():
+                counter = 1
+                while True:
+                    filename = f"{base_name_without_ext}.part{counter:03d}{ext}"
+                    yield open(filename, 'wb')
+                    counter += 1
 
             with open(temp_file, 'rb') as infile:
-                with SplitFileWriter(file_pattern, max_size) as writer:
+                with SplitFileWriter(filename_generator(), max_size) as writer:
                     # 使用shutil.copyfileobj进行高效复制
                     shutil.copyfileobj(infile, writer)
 
