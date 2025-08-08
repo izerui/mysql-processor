@@ -182,7 +182,7 @@ class MyRestore(BaseShell):
         # 使用tqdm创建进度条
         with tqdm(
             total=len(data_files),
-            desc=f"{Fore.MAGENTA}📊 并行[{self.threads}]导入: [{database}] 数据库",
+            desc=f"{Fore.MAGENTA}📊 导入: [{database}] 数据库",
             unit="文件",
             dynamic_ncols=True,  # 自动调整宽度
             disable=False,
