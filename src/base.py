@@ -1,17 +1,13 @@
 import os
 import platform
-import sys
+
 from logger_config import logger
 
 
 class BaseShell(object):
     """基础Shell命令执行类"""
 
-    def _get_exe_path(self):
-        """根据操作系统获取可执行文件路径 - 已废弃，使用bin目录"""
-        return 'bin'
-
-    def _get_mysql_client_path(self):
+    def get_mysql_dir(self):
         """获取MySQL官方版本的根目录"""
         # 获取当前文件所在目录
         current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -23,19 +19,20 @@ class BaseShell(object):
             raise BaseException(f'MySQL官方版本未安装: {mysql_official_path}')
         return mysql_official_path
 
-    def _get_mysqldump_exe(self):
+    def get_mysql_bin_dir(self):
+        """获取MySQL官方版本bin目录"""
+        mysql_path = self.get_mysql_dir()
+        return os.path.join(mysql_path, 'bin')
+
+    def get_mysqldump_exe(self):
         """获取mysqldump可执行文件完整路径"""
-        mysql_path = self._get_mysql_client_path()
-        mysqldump_exe = 'mysqldump.exe' if platform.system() == 'Windows' else 'mysqldump'
-        return os.path.join(mysql_path, 'bin', mysqldump_exe)
+        return 'mysqldump.exe' if platform.system() == 'Windows' else 'mysqldump'
 
-    def _get_mysql_exe(self):
+    def get_mysql_exe(self):
         """获取mysql可执行文件完整路径"""
-        mysql_path = self._get_mysql_client_path()
-        mysql_exe = 'mysql.exe' if platform.system() == 'Windows' else 'mysql'
-        return os.path.join(mysql_path, 'bin', mysql_exe)
+        return 'mysql.exe' if platform.system() == 'Windows' else 'mysql'
 
-    def _exe_command(self, command, cwd=None, success_msg=None):
+    def _exe_command(self, command, cwd=None):
         """
         执行 shell 命令并实时打印输出
         :param command: shell 命令
@@ -44,7 +41,7 @@ class BaseShell(object):
         :return: (success: bool, exit_code: int, output: list)
         """
         # 记录实际执行的命令
-        # logger.info(f"执行命令: {command}")
+        logger.info(f"执行命令: {command}")
 
         try:
             import subprocess

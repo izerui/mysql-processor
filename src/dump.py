@@ -70,11 +70,8 @@ class MyDump(BaseShell):
             # 确保输出目录存在
             os.makedirs(os.path.dirname(dump_file), exist_ok=True)
 
-            mysqldump_path = self._get_mysqldump_exe()
-            mysqldump_bin_dir = os.path.dirname(mysqldump_path)
-
             # 第一步：导出数据库结构
-            if not self._export_structure(database, dump_file, mysqldump_path, mysqldump_bin_dir):
+            if not self._export_structure(database, dump_file):
                 return False
 
             # 第二步：获取数据库的所有表
@@ -85,14 +82,14 @@ class MyDump(BaseShell):
                 return True
 
             # 第三步：并发导出表数据
-            success_count = self._export_tables_data(database, dump_file, mysqldump_path, mysqldump_bin_dir)
+            success_count = self._export_tables_data(database, dump_file)
             return success_count >= 0
 
         except Exception as e:
             logger.error(f"导出过程发生错误 - 数据库: {database}, 错误: {str(e)}")
             return False
 
-    def _export_structure(self, database: str, dump_file: str, mysqldump_path: str, mysqldump_bin_dir: str) -> bool:
+    def _export_structure(self, database: str, dump_file: str) -> bool:
         """
         导出数据库结构（不包含数据）
 
@@ -105,19 +102,21 @@ class MyDump(BaseShell):
         Args:
             database: 数据库名称
             dump_file: 输出文件路径
-            mysqldump_path: mysqldump可执行文件路径
-            mysqldump_bin_dir: mysqldump所在目录
 
         Returns:
             bool: 导出成功返回True，失败返回False
         """
         try:
+
+            mysql_dump_exe = self.get_mysqldump_exe()
+            mysql_bin_dir = self.get_mysql_bin_dir()
+
             # 构建mysqldump命令，只导出结构
             cmd = (
-                f'{mysqldump_path} '
+                f'{mysql_dump_exe} '
                 f'-h {self.mysql.db_host} '
                 f'-u {self.mysql.db_user} '
-                f'-p"{self.mysql.db_pass}" '
+                f'-p\'{self.mysql.db_pass}\' '
                 f'--port={self.mysql.db_port} '
                 f'--default-character-set=utf8 '
                 f'--set-gtid-purged=OFF '  # 不导出GTID信息
@@ -143,7 +142,7 @@ class MyDump(BaseShell):
             )
 
             full_command = f'{cmd} > {dump_file}'
-            success, exit_code, output = self._exe_command(full_command, cwd=mysqldump_bin_dir)
+            success, exit_code, output = self._exe_command(full_command, cwd=mysql_bin_dir)
 
             if not success:
                 raise RuntimeError(f"数据库结构导出失败，exit code: {exit_code}")
@@ -154,8 +153,7 @@ class MyDump(BaseShell):
             logger.error(f"数据库结构导出失败 - 数据库: {database}, 错误: {str(e)}")
             return False
 
-    def _export_tables_data(self, database: str, dump_file: str,
-                          mysqldump_path: str, mysqldump_bin_dir: str) -> int:
+    def _export_tables_data(self, database: str, dump_file: str) -> int:
         """
         并发导出所有表的数据
 
@@ -164,8 +162,6 @@ class MyDump(BaseShell):
         Args:
             database: 数据库名称
             dump_file: 主SQL文件路径（用于确定输出目录）
-            mysqldump_path: mysqldump可执行文件路径
-            mysqldump_bin_dir: mysqldump所在目录
 
         Returns:
             int: 成功导出的表数量
@@ -215,8 +211,9 @@ class MyDump(BaseShell):
                     table_file = os.path.join(db_folder, f"{table}.sql")
                     future = pool.submit(
                         self._export_single_table,
-                        database, table, table_file,
-                        mysqldump_path, mysqldump_bin_dir,
+                        database,
+                        table,
+                        table_file,
                     )
                     # 添加回调来更新进度
                     future.add_done_callback(
@@ -265,8 +262,7 @@ class MyDump(BaseShell):
             logger.error(f"计算导出文件总大小失败: {str(e)}")
             return 0.0
 
-    def _export_single_table(self, database: str, table: str, table_file: str,
-                             mysqldump_path: str, mysqldump_bin_dir: str) -> dict:
+    def _export_single_table(self, database: str, table: str, table_file: str) -> dict:
         """
         导出单个表的数据
 
@@ -280,8 +276,6 @@ class MyDump(BaseShell):
             database: 数据库名称
             table: 表名称
             table_file: 输出文件路径
-            mysqldump_path: mysqldump可执行文件路径
-            mysqldump_bin_dir: mysqldump所在目录
 
         Returns:
             dict: 包含导出结果的字典
@@ -293,9 +287,12 @@ class MyDump(BaseShell):
         start_time = time.time()
 
         try:
+            mysql_dump_exe = self.get_mysqldump_exe()
+            mysql_bin_dir = self.get_mysql_bin_dir()
+
             # 构建mysqldump命令，只导出数据
             cmd = (
-                f'{mysqldump_path} '
+                f'{mysql_dump_exe} '
                 f'-h {self.mysql.db_host} '
                 f'-u {self.mysql.db_user} '
                 f'-p"{self.mysql.db_pass}" '
@@ -322,7 +319,7 @@ class MyDump(BaseShell):
             full_command = f'{cmd} > {table_file}'
 
             success, exit_code, output = self._exe_command(
-                full_command, cwd=mysqldump_bin_dir
+                full_command, cwd=mysql_bin_dir
             )
 
             if not success:

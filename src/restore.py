@@ -329,8 +329,8 @@ class MyRestore(BaseShell):
             bool: 导入成功返回True，失败返回False
         """
         try:
-            mysql_path = self._get_mysql_exe()
-            mysql_bin_dir = os.path.dirname(mysql_path)
+            mysql_exe = self.get_mysql_exe()
+            mysql_bin_dir = self.get_mysql_bin_dir()
 
             # 构建优化的mysql命令
             init_commands = [
@@ -343,7 +343,7 @@ class MyRestore(BaseShell):
 
             # 构建mysql命令
             cmd = (
-                f'{mysql_path} '
+                f'{mysql_exe} '
                 f'-h {self.mysql.db_host} '
                 f'-u {self.mysql.db_user} '
                 f'-p\'{self.mysql.db_pass}\' '
@@ -365,7 +365,7 @@ class MyRestore(BaseShell):
             if success:
                 # 导入成功后提交事务并恢复设置
                 commit_cmd = (
-                    f'{mysql_path} '
+                    f'{mysql_exe} '
                     f'-h {self.mysql.db_host} '
                     f'-u {self.mysql.db_user} '
                     f'-p\'{self.mysql.db_pass}\' '
@@ -388,7 +388,7 @@ class MyRestore(BaseShell):
             else:
                 # 导入失败时回滚事务并恢复设置
                 rollback_cmd = (
-                    f'{mysql_path} '
+                    f'{mysql_exe} '
                     f'-h {self.mysql.db_host} '
                     f'-u {self.mysql.db_user} '
                     f'-p\'{self.mysql.db_pass}\' '

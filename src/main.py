@@ -184,6 +184,7 @@ def main():
     """主函数：执行MySQL数据库备份导出导入流程"""
     start_time = time.time()
 
+    # 确保MySQL已安装
     ensure_mysql_installed()
 
     # 加载配置
@@ -225,9 +226,6 @@ def main():
             )
         else:
             logger.error(f"数据库 {db} 处理失败: {result['error']}")
-
-    # 文件监控已暂时屏蔽，无需停止
-    pass
 
     # 显示最终汇总
     total_duration = time.time() - start_time
