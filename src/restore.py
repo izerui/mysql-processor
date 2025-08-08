@@ -333,13 +333,13 @@ class MyRestore(BaseShell):
             mysql_bin_dir = self.get_mysql_bin_dir()
 
             # 构建优化的mysql命令
-            # init_commands = [
-            #     "SET autocommit=0",                    # 禁用自动提交
-            #     "SET foreign_key_checks=0",            # 禁用外键检查
-            #     "SET unique_checks=0",                 # 禁用唯一性检查
-            #     "SET SESSION innodb_lock_wait_timeout=3600",  # 设置事务超时时间
-            # ]
-            # init_command_str = ";".join(init_commands)
+            init_commands = [
+                "SET autocommit=0",                    # 禁用自动提交
+                "SET foreign_key_checks=0",            # 禁用外键检查
+                "SET unique_checks=0",                 # 禁用唯一性检查
+                "SET SESSION innodb_lock_wait_timeout=3600",  # 设置事务超时时间
+            ]
+            init_command_str = ";".join(init_commands)
 
             # 构建mysql命令
             cmd = (
@@ -348,10 +348,13 @@ class MyRestore(BaseShell):
                 f'-u {self.mysql.db_user} '
                 f'-p\'{self.mysql.db_pass}\' '
                 f'--port={self.mysql.db_port} '
-                f'--default-character-set=utf8 '           # 设置字符集
-                f'--max_allowed_packet=268435456 '        # 最大数据包256MB
-                f'--net_buffer_length=1048576 '           # 网络缓冲区1MB
-                # f'--init-command="{init_command_str}"'    # 初始化命令
+                f'--ssl-mode=DISABLED '
+                f'--protocol=TCP '
+                f'--compress '
+                f'--default-character-set=utf8mb4 '           # 设置字符集
+                f'--max-allowed-packet=1024M '        # 最大数据包1G
+                f'--net-buffer-length=1048576 '           # 网络缓冲区1MB
+                f'--init-command="{init_command_str}"'    # 初始化命令
                 f' {database}'
             )
 
