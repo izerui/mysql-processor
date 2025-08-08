@@ -230,7 +230,7 @@ def main():
                 f"数据库 {db} 处理完成 - 导出耗时: {result['export_duration']:.1f}s, "
                 f"导入耗时: {result['import_duration']:.1f}s, "
                 f"总耗时: {result['export_duration'] + result['import_duration']:.1f}s, "
-                f"导出文件: {result['total_export_size_mb']:.1f}MB"
+                f"处理文件: {result['total_export_size_mb']:.1f}MB"
             )
         else:
             logger.error(f"数据库 {db} 处理失败: {result['error']}")

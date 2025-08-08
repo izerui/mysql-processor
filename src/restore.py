@@ -121,7 +121,7 @@ class MyRestore(BaseShell):
         try:
             start_time = time.time()
 
-            success = self._execute_import(structure_file, database)
+            success = self._execute_import(structure_file, database, is_structure_file=True)
 
             if success:
                 elapsed_time = time.time() - start_time
@@ -288,7 +288,7 @@ class MyRestore(BaseShell):
             file_size = os.path.getsize(sql_file)
             file_size_mb = file_size / 1024 / 1024
 
-            success = self._execute_import(sql_file, database)
+            success = self._execute_import(sql_file, database, is_structure_file=False)
 
             return {
                 'success': success,
@@ -305,16 +305,16 @@ class MyRestore(BaseShell):
                 'error': str(e)
             }
 
-    def _execute_import(self, sql_file: str, database: str) -> bool:
+    def _execute_import(self, sql_file: str, database: str, is_structure_file: bool = False) -> bool:
         """
         执行单个SQL文件的导入
 
         导入优化：
-        1. 禁用自动提交，提高批量导入性能
-        2. 禁用外键检查，避免约束冲突
-        3. 禁用唯一性检查，提高导入速度
-        4. 设置大事务超时时间
-        5. 使用大网络缓冲区
+        1. 区分结构文件和数据文件的处理方式
+        2. 结构文件：不指定数据库，让SQL文件中的CREATE DATABASE生效
+        3. 数据文件：指定具体数据库进行导入
+        4. 禁用自动提交，提高批量导入性能
+        5. 禁用外键检查，避免约束冲突
 
         事务管理：
         - 导入前：禁用约束检查
@@ -324,6 +324,7 @@ class MyRestore(BaseShell):
         Args:
             sql_file: SQL文件完整路径
             database: 目标数据库名称
+            is_structure_file: 是否为结构文件（包含CREATE DATABASE语句）
 
         Returns:
             bool: 导入成功返回True，失败返回False
@@ -332,17 +333,8 @@ class MyRestore(BaseShell):
             mysql_exe = self.get_mysql_exe()
             mysql_bin_dir = self.get_mysql_bin_dir()
 
-            # 构建优化的mysql命令
-            init_commands = [
-                "SET autocommit=0",                    # 禁用自动提交
-                "SET foreign_key_checks=0",            # 禁用外键检查
-                "SET unique_checks=0",                 # 禁用唯一性检查
-                "SET SESSION innodb_lock_wait_timeout=3600",  # 设置事务超时时间
-            ]
-            init_command_str = ";".join(init_commands)
-
-            # 构建mysql命令
-            cmd = (
+            # 构建基础mysql命令
+            base_cmd = (
                 f'{mysql_exe} '
                 f'-h {self.mysql.db_host} '
                 f'-u {self.mysql.db_user} '
@@ -350,13 +342,26 @@ class MyRestore(BaseShell):
                 f'--port={self.mysql.db_port} '
                 f'--ssl-mode=DISABLED '
                 f'--protocol=TCP '
-                f'--compress '
-                f'--default-character-set=utf8mb4 '           # 设置字符集
-                f'--max-allowed-packet=1024M '        # 最大数据包1G
-                f'--net-buffer-length=1048576 '           # 网络缓冲区1MB
-                f'--init-command="{init_command_str}"'    # 初始化命令
-                f' {database}'
+                f'--compression-algorithms=zlib '
+                f'--default-character-set=utf8mb4 '
+                f'--max-allowed-packet=1024M '
+                f'--net-buffer-length=1048576 '
             )
+
+            # 根据文件类型构建命令
+            if is_structure_file:
+                # 结构文件：不指定数据库，让SQL文件中的CREATE DATABASE生效
+                cmd = base_cmd
+            else:
+                # 数据文件：指定具体数据库，并添加初始化命令
+                init_commands = [
+                    "SET autocommit=0",
+                    "SET foreign_key_checks=0",
+                    "SET unique_checks=0",
+                    "SET SESSION innodb_lock_wait_timeout=3600",
+                ]
+                init_command_str = ";".join(init_commands)
+                cmd = f'{base_cmd} --init-command="{init_command_str}" {database}'
 
             import_command = f'{cmd} < "{sql_file}"'
 
