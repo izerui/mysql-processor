@@ -1,5 +1,6 @@
 import concurrent.futures
 import os
+import re
 import shutil
 import sys
 import time
@@ -179,10 +180,21 @@ class MyDump(BaseShell):
                             # 确保有分号结尾
                             create_table_sql = create_table_sql.rstrip(';') + ';'
 
-                            # 添加ROW_FORMAT=DYNAMIC（如果不存在）
-                            if 'ROW_FORMAT=' not in create_table_sql.upper():
-                                create_table_sql = create_table_sql.rstrip(';')
-                                create_table_sql += " ROW_FORMAT=DYNAMIC;"
+                            # 处理ROW_FORMAT：替换COMPACT/REDUNDANT为DYNAMIC，或添加DYNAMIC
+                            create_table_sql = create_table_sql.rstrip(';')
+
+                            # 处理各种ROW_FORMAT变体
+                            row_format_pattern = re.compile(r'ROW_FORMAT\s*=\s*(COMPACT|REDUNDANT|FIXED)', re.IGNORECASE)
+                            if row_format_pattern.search(create_table_sql):
+                                # 替换为DYNAMIC
+                                create_table_sql = row_format_pattern.sub('ROW_FORMAT=DYNAMIC', create_table_sql)
+                            elif not re.search(r'ROW_FORMAT\s*=', create_table_sql, re.IGNORECASE):
+                                # 如果不存在ROW_FORMAT，添加DYNAMIC
+                                # 检查是否包含ENGINE=InnoDB，只在InnoDB引擎添加
+                                if 'ENGINE=InnoDB' in create_table_sql.upper():
+                                    create_table_sql += " ROW_FORMAT=DYNAMIC"
+
+                            create_table_sql += ";"
 
                             f.write(create_table_sql + "\n\n")
                     logger.info(f"数据库结构导出成功 - 数据库: {database}, 表数量: {len(tables)}")
