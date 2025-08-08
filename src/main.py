@@ -13,12 +13,7 @@ from dump import MyDump
 from logger_config import logger
 from restore import MyRestore
 
-# 导入MySQL下载器
-try:
-    from mysql_downloader import MySQLDownloader
-except ImportError:
-    from mysql_downloader import MySQLDownloader
-
+from mysql_downloader import MySQLDownloader
 
 def ensure_mysql_installed() -> str:
     """确保MySQL工具已安装，返回mysqldump路径"""
