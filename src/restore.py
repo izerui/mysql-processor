@@ -205,14 +205,14 @@ class MyRestore(BaseShell):
                     avg_speed = f"{imported_total_size / elapsed_time:.1f}MB/s" if elapsed_time > 0 else "0.0MB/s"
                     pbar.set_postfix_str(
                         f"✓ {os.path.basename(file_name)} "
-                        f"({result['size_mb']:.1f}MB) 平均速度: {avg_speed} "
-                        f"已导入: {imported_total_size:.1f}MB"
+                        f"({result['size_mb']:.1f}MB)   {avg_speed} "
+                        f"| {imported_total_size:.1f}MB"
                     )
                 else:
                     imported_total_size += result['size_mb']
                     avg_speed = f"{imported_total_size / elapsed_time:.1f}MB/s" if elapsed_time > 0 else "0.0MB/s"
                     pbar.set_postfix_str(
-                        f"✗ {os.path.basename(file_name)} 平均速度: {avg_speed} 已导入: {imported_total_size:.1f}MB"
+                        f"✗ {os.path.basename(file_name)}   {avg_speed} | {imported_total_size:.1f}MB"
                     )
                 pbar.update(1)
                 return result
