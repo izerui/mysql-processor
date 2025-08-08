@@ -448,17 +448,17 @@ class MyDump(BaseShell):
 
     def _split_large_file(self, temp_file: str, base_filename: str, max_size: int):
         """
-        使用流式处理拆分大文件，避免内存占用
+        使用真正的流式处理拆分大文件，零内存缓存
 
         流式拆分策略：
-        1. 直接处理生成器：不收集所有INSERT行到内存
-        2. 分块写入：current_lines只保存当前文件内容
-        3. 及时释放：写完一个文件立即清空缓存
+        1. 零内存缓存：边读边写，不累积任何数据到内存
+        2. 即时处理：每行数据直接写入目标文件
+        3. 文件切换：达到分片大小立即创建新文件
         4. 编码兼容：保留UTF-8/Latin-1处理逻辑
 
         内存控制：
-        - 峰值内存 = 单个文件最大内容 + 64KB缓冲区
-        - 与原始文件大小无关，适合处理GB级文件
+        - 峰值内存 = 64KB缓冲区（与文件大小无关）
+        - 真正的O(1)内存复杂度，适合处理任意大小文件
 
         Args:
             temp_file: 临时文件路径
@@ -481,11 +481,10 @@ class MyDump(BaseShell):
         effective_max_bytes = max_bytes - header_size - footer_size
 
         try:
-            # 流式处理INSERT INTO行，避免内存占用
+            # 流式处理INSERT INTO行，零内存缓存
             insert_lines = self._iter_insert_lines(temp_file)
 
-            # 开始拆分文件 - 使用真正的流式处理
-            current_lines = []
+            output_handle = None
             current_size = 0
 
             for line in insert_lines:
@@ -499,38 +498,40 @@ class MyDump(BaseShell):
 
                 line_size = len(byte_line)
 
-                # 检查是否需要创建新文件
-                if current_size + line_size > effective_max_bytes and current_lines:
-                    # 写入当前文件
-                    current_output_file = f"{base_name_without_ext}.part{file_counter:03d}{ext}"
-                    with open(current_output_file, 'wb') as output_handle:
-                        output_handle.write(header_bytes)
-                        for line_data in current_lines:
-                            output_handle.write(line_data)
+                # 检查是否需要创建新文件（第一个文件或达到大小限制）
+                need_new_file = (
+                    output_handle is None or
+                    (current_size + line_size > effective_max_bytes and current_size > 0)
+                )
+
+                if need_new_file:
+                    # 关闭前一个文件
+                    if output_handle:
                         output_handle.write(footer_bytes)
+                        output_handle.close()
 
-                    # 重置计数器
+                    # 创建新文件
+                    current_output_file = f"{base_name_without_ext}.part{file_counter:03d}{ext}"
+                    output_handle = open(current_output_file, 'wb')
+                    output_handle.write(header_bytes)
+                    current_size = header_size
                     file_counter += 1
-                    current_lines = []
-                    current_size = 0
 
-                current_lines.append(byte_line)
+                # 直接写入当前文件，零内存缓存
+                output_handle.write(byte_line)
                 current_size += line_size
 
-            # 写入最后一个文件
-            if current_lines:
-                current_output_file = f"{base_name_without_ext}.part{file_counter:03d}{ext}"
-                with open(current_output_file, 'wb') as output_handle:
-                    output_handle.write(header_bytes)
-                    for line_data in current_lines:
-                        output_handle.write(line_data)
-                    output_handle.write(footer_bytes)
-                file_counter += 1
+            # 关闭最后一个文件
+            if output_handle:
+                output_handle.write(footer_bytes)
+                output_handle.close()
 
             return file_counter - 1
 
         except Exception as e:
             logger.error(f"拆分文件时发生错误: {str(e)}")
+            if output_handle:
+                output_handle.close()
             raise
 
     def _check_has_insert_sql(self, file_path: str) -> bool:
