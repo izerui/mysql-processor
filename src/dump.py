@@ -172,9 +172,6 @@ class MyDump(BaseShell):
 
                         # 为每个表生成DROP和CREATE语句
                         for table in tables:
-                            # DROP TABLE语句
-                            f.write(f"DROP TABLE IF EXISTS `{table}`;\n")
-
                             # CREATE TABLE语句
                             cursor.execute(f"SHOW CREATE TABLE `{database}`.`{table}`")
                             create_table_sql = cursor.fetchone()[1]
