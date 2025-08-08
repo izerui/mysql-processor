@@ -13,25 +13,20 @@ from tqdm import tqdm
 from base import BaseShell, Mysql
 from logger_config import logger
 
-
 # 定义SQL头尾语句
 header_lines = [
-    "set foreign_key_checks = 0;",                          # 禁用外键检查
-    "set unique_checks = 0;",                               # 禁用唯一性检查
-    "set autocommit=0;",                                    # 禁用自动提交
-    # "SET SESSION bulk_insert_buffer_size = 256*1024*1024;"  # 增大批量插入缓冲区
-    # "SET SESSION sql_log_bin = 0;"                          # 关闭binlog（如果不需要复制）
-    "SET SESSION sort_buffer_size = 32*1024*1024;"          # 调整排序缓冲区
-    "START TRANSACTION;"                                    # 开始事务
-    ""
+    "set foreign_key_checks = 0;",  # 禁用外键检查
+    "set unique_checks = 0;",  # 禁用唯一性检查
+    "set autocommit=0;",  # 禁用自动提交
+    "SET SESSION sort_buffer_size = 32*1024*1024;",  # 调整排序缓冲区
+    "START TRANSACTION;",  # 开始事务
 ]
 footer_lines = [
-    "",
     "commit;",
     "set foreign_key_checks = 1;",
-    "set unique_checks = 1;"
-    # "SET SESSION sql_log_bin = 1;"
+    "set unique_checks = 1;",
 ]
+
 
 class MyDump(BaseShell):
     """
@@ -137,6 +132,8 @@ class MyDump(BaseShell):
                 f'-u {self.mysql.db_user} '
                 f'-p\'{self.mysql.db_pass}\' '
                 f'--port={self.mysql.db_port} '
+                f'--ssl-mode=DISABLED ' # 如果不需要SSL
+                f'--protocol=TCP ' # 强制使用TCP
                 f'--default-character-set=utf8 '
                 f'--set-gtid-purged=OFF '  # 不导出GTID信息
                 f'--skip-routines '  # 跳过存储过程和函数
@@ -201,7 +198,8 @@ class MyDump(BaseShell):
         export_start_time = time.time()  # 记录开始时间
 
         # 使用tqdm显示进度条
-        with tqdm(total=len(tables), desc=f"{Fore.MAGENTA}📊 并行[{self.threads}]导出 {database} 表数据", unit="表", dynamic_ncols=True, disable=False,
+        with tqdm(total=len(tables), desc=f"{Fore.MAGENTA}📊 并行[{self.threads}]导出 {database} 表数据", unit="表",
+                  dynamic_ncols=True, disable=False,
                   file=sys.stdout, ascii=True) as pbar:
             def update_progress(result, table_name):
                 """更新进度条显示"""
@@ -212,13 +210,15 @@ class MyDump(BaseShell):
                     # 计算从开始到现在的整体平均速度
                     elapsed_time = time.time() - export_start_time
                     overall_speed = f"{exported_total_size / elapsed_time:.1f}MB/s" if elapsed_time > 0 else "0.0MB/s"
-                    pbar.set_postfix_str(f"✓ {table_name} ({result['original_size_mb']:.1f}MB) 平均速度: {overall_speed} 已导出: {exported_total_size:.1f}MB")
+                    pbar.set_postfix_str(
+                        f"✓ {table_name} ({result['original_size_mb']:.1f}MB) 平均速度: {overall_speed} 已导出: {exported_total_size:.1f}MB")
                 else:
                     exported_total_size = self._get_exported_files_size(db_folder)
                     # 即使失败也计算整体平均速度
                     elapsed_time = time.time() - export_start_time
                     overall_speed = f"{exported_total_size / elapsed_time:.1f}MB/s" if elapsed_time > 0 else "0.0MB/s"
-                    pbar.set_postfix_str(f"✗ {table_name} 平均速度: {overall_speed} 已导出: {exported_total_size:.1f}MB")
+                    pbar.set_postfix_str(
+                        f"✗ {table_name} 平均速度: {overall_speed} 已导出: {exported_total_size:.1f}MB")
                 pbar.update(1)
                 return result
 
@@ -229,7 +229,7 @@ class MyDump(BaseShell):
                 for table in tables:
                     table_file = os.path.join(db_folder, f"{table}.sql")
                     future = pool.submit(
-                        self._export_single_table_insert_sqls,
+                        self._export_table_data,
                         database,
                         table,
                         table_file,
@@ -281,7 +281,7 @@ class MyDump(BaseShell):
             logger.error(f"计算导出文件总大小失败: {str(e)}")
             return 0.0
 
-    def _export_single_table_insert_sqls(self, database: str, table: str, table_file: str) -> dict:
+    def _export_table_data(self, database: str, table: str, table_file: str) -> dict:
         """
         导出单个表的数据
 
@@ -316,6 +316,8 @@ class MyDump(BaseShell):
                 f'-u {self.mysql.db_user} '
                 f'-p"{self.mysql.db_pass}" '
                 f'--port={self.mysql.db_port} '
+                f'--ssl-mode=DISABLED ' # 如果不需要SSL
+                f'--protocol=TCP ' # 强制使用TCP
                 f'--default-character-set=utf8 '
                 f'--set-gtid-purged=OFF '
                 f'--skip-routines '
