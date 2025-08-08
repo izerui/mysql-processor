@@ -47,3 +47,4 @@ config.ini
 .DS_Store
 Thumbs.db
 mysql/
+sample/
