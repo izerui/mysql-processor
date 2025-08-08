@@ -187,7 +187,7 @@ class MyRestore(BaseShell):
         # 使用tqdm创建进度条
         with tqdm(
             total=len(data_files),
-            desc=f"导入 {database} 数据库",
+            desc=f"并行[{self.threads}]导入 {database} 数据库",
             unit="文件",
             dynamic_ncols=True,  # 自动调整宽度
             disable=False,
@@ -333,13 +333,13 @@ class MyRestore(BaseShell):
             mysql_bin_dir = self.get_mysql_bin_dir()
 
             # 构建优化的mysql命令
-            init_commands = [
-                "SET autocommit=0",                    # 禁用自动提交
-                "SET foreign_key_checks=0",            # 禁用外键检查
-                "SET unique_checks=0",                 # 禁用唯一性检查
-                "SET SESSION innodb_lock_wait_timeout=3600"  # 设置事务超时时间
-            ]
-            init_command_str = ";".join(init_commands)
+            # init_commands = [
+            #     "SET autocommit=0",                    # 禁用自动提交
+            #     "SET foreign_key_checks=0",            # 禁用外键检查
+            #     "SET unique_checks=0",                 # 禁用唯一性检查
+            #     "SET SESSION innodb_lock_wait_timeout=3600",  # 设置事务超时时间
+            # ]
+            # init_command_str = ";".join(init_commands)
 
             # 构建mysql命令
             cmd = (
@@ -351,7 +351,7 @@ class MyRestore(BaseShell):
                 f'--default-character-set=utf8 '           # 设置字符集
                 f'--max_allowed_packet=268435456 '        # 最大数据包256MB
                 f'--net_buffer_length=1048576 '           # 网络缓冲区1MB
-                f'--init-command="{init_command_str}"'    # 初始化命令
+                # f'--init-command="{init_command_str}"'    # 初始化命令
                 f' {database}'
             )
 
@@ -363,43 +363,8 @@ class MyRestore(BaseShell):
             )
 
             if success:
-                # 导入成功后提交事务并恢复设置
-                commit_cmd = (
-                    f'{mysql_exe} '
-                    f'-h {self.mysql.db_host} '
-                    f'-u {self.mysql.db_user} '
-                    f'-p\'{self.mysql.db_pass}\' '
-                    f'--port={self.mysql.db_port} '
-                    f'--default-character-set=utf8 '
-                    f'--execute="COMMIT; SET foreign_key_checks=1; SET unique_checks=1; SET autocommit=1;"'
-                    f' {database}'
-                )
-
-                commit_success, commit_exit_code, commit_output = self._exe_command(
-                    commit_cmd, cwd=mysql_bin_dir
-                )
-
-                if commit_success:
-                    return True
-                else:
-                    error_msg = "\n".join([line for line in commit_output if line.strip()])
-                    logger.error(f"MySQL事务提交失败 - exit_code: {commit_exit_code}, 错误: {error_msg}")
-                    return False
+                return True
             else:
-                # 导入失败时回滚事务并恢复设置
-                rollback_cmd = (
-                    f'{mysql_exe} '
-                    f'-h {self.mysql.db_host} '
-                    f'-u {self.mysql.db_user} '
-                    f'-p\'{self.mysql.db_pass}\' '
-                    f'--port={self.mysql.db_port} '
-                    f'--default-character-set=utf8 '
-                    f'--execute="ROLLBACK; SET foreign_key_checks=1; SET unique_checks=1; SET autocommit=1;"'
-                    f' {database}'
-                )
-
-                self._exe_command(rollback_cmd, cwd=mysql_bin_dir)
-
                 error_msg = "\n".join([line for line in output if line.strip()])
                 logger.error(f"MySQL导入失败 - exit_code: {exit_code}, 错误: {error_msg}")
                 return False

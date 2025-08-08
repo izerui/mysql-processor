@@ -182,7 +182,7 @@ class MyDump(BaseShell):
         export_start_time = time.time()  # 记录开始时间
 
         # 使用tqdm显示进度条
-        with tqdm(total=len(tables), desc=f"导出 {database} 表数据", unit="表", dynamic_ncols=True, disable=False,
+        with tqdm(total=len(tables), desc=f"并行[{self.threads}]导出 {database} 表数据", unit="表", dynamic_ncols=True, disable=False,
                   file=sys.stdout, ascii=True) as pbar:
             def update_progress(result, table_name):
                 """更新进度条显示"""
@@ -439,9 +439,13 @@ class MyDump(BaseShell):
 
         # 定义SQL头尾语句
         header_lines = [
-            "set foreign_key_checks = 0;",
-            "set unique_checks = 0;",
-            "set autocommit=0;",
+            "set foreign_key_checks = 0;",                          # 禁用外键检查
+            "set unique_checks = 0;",                               # 禁用唯一性检查
+            "set autocommit=0;",                                    # 禁用自动提交
+            # "SET SESSION bulk_insert_buffer_size = 256*1024*1024;"  # 增大批量插入缓冲区
+            # "SET SESSION sql_log_bin = 0;"                          # 关闭binlog（如果不需要复制）
+            "SET SESSION sort_buffer_size = 32*1024*1024;"          # 调整排序缓冲区
+            "START TRANSACTION;"                                    # 开始事务
             ""
         ]
         footer_lines = [
@@ -449,6 +453,7 @@ class MyDump(BaseShell):
             "commit;",
             "set foreign_key_checks = 1;",
             "set unique_checks = 1;"
+            # "SET SESSION sql_log_bin = 1;"
         ]
 
         header_bytes = '\n'.join(header_lines).encode('utf-8')

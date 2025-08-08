@@ -41,7 +41,7 @@ class BaseShell(object):
         :return: (success: bool, exit_code: int, output: list)
         """
         # 记录实际执行的命令
-        logger.info(f"执行命令: {command}")
+        # logger.info(f"执行命令: {command}")
 
         try:
             import subprocess
