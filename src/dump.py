@@ -148,6 +148,7 @@ class MyDump(BaseShell):
                 f'--disable-keys '  # 禁用外键检查
                 f'--skip-events '  # 跳过事件
                 f'--skip-set-charset '  # 跳过字符集设置
+                f'--skip-comments '
                 f'--add-drop-database '  # 添加删除数据库语句
                 f'--extended-insert '  # 使用扩展插入格式
                 f'--complete-insert '  # 使用完整的列名

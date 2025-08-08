@@ -371,7 +371,6 @@ class MyRestore(BaseShell):
                 return True, ""
             else:
                 error_msg = "\n".join([line for line in output if line.strip()])
-                logger.error(f"MySQL导入失败 - exit_code: {exit_code}, 错误: {error_msg}")
                 return False, error_msg
 
         except Exception as e:
