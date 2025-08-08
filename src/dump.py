@@ -120,7 +120,12 @@ class MyDump(BaseShell):
                     autocommit=True
             ) as conn:
                 cursor = conn.cursor()
-                cursor.execute(f"SHOW TABLES FROM `{database}`")
+                cursor.execute("""
+                    SELECT TABLE_NAME
+                    FROM information_schema.TABLES
+                    WHERE TABLE_SCHEMA = %s
+                      AND TABLE_TYPE = 'BASE TABLE'
+                """, (database,))
                 tables = [row[0] for row in cursor.fetchall()]
                 return tables
         except Exception as e:
