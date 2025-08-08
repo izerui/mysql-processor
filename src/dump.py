@@ -229,7 +229,7 @@ class MyDump(BaseShell):
                 for table in tables:
                     table_file = os.path.join(db_folder, f"{table}.sql")
                     future = pool.submit(
-                        self._export_single_table,
+                        self._export_single_table_insert_sqls,
                         database,
                         table,
                         table_file,
@@ -281,7 +281,7 @@ class MyDump(BaseShell):
             logger.error(f"计算导出文件总大小失败: {str(e)}")
             return 0.0
 
-    def _export_single_table(self, database: str, table: str, table_file: str) -> dict:
+    def _export_single_table_insert_sqls(self, database: str, table: str, table_file: str) -> dict:
         """
         导出单个表的数据
 
@@ -321,17 +321,27 @@ class MyDump(BaseShell):
                 f'--skip-routines '
                 f'--skip-triggers '
                 f'--skip-add-locks '
+                f'--disable-keys '
                 f'--skip-events '
                 f'--skip-set-charset '
+                f'--extended-insert '
+                f'--complete-insert '
+                f'--quick '
                 f'--no-autocommit '
                 f'--single-transaction '
                 f'--skip-lock-tables '
                 f'--no-autocommit '
-                f'--no-create-info '  # 关键：不导出表结构
-                f'--compact '  # 紧凑格式
-                f'--quick '  # 快速导出
-                f'--databases {database} '
-                f'--tables {table}'
+                f'--compress '
+                f'--skip-tz-utc '
+                f'--max-allowed-packet=256M '
+                f'--net-buffer-length=1048576 '
+                f'--no-create-info '
+                f'--skip-set-charset '
+                f'--skip-comments '
+                f'--compact '
+                f'--set-gtid-purged=OFF '
+                f'--quick '
+                f'{database} {table}'
             )
 
             # 直接导出到表名.sql文件
