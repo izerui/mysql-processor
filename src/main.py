@@ -160,8 +160,8 @@ def process_single_database(db: str,
 
         result['total_export_size_mb'] = total_size / 1024 / 1024
 
-        # 清理阶段
-        if delete_after_import:
+        # 清理阶段 - 只有导入成功后才根据配置决定是否删除
+        if result['status'] == 'success' and delete_after_import:
             # 删除数据库结构文件
             if sql_file.exists():
                 sql_file.unlink()
@@ -172,6 +172,10 @@ def process_single_database(db: str,
                 shutil.rmtree(db_folder)
 
             logger.info(f"🗑️ 已清理导出文件: {db}")
+        elif result['status'] == 'success' and not delete_after_import:
+            logger.info(f"保留导出文件: {db}")
+        else:
+            logger.warning(f"导入失败，保留导出文件用于调试: {db}")
 
         return result
 
