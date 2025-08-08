@@ -179,10 +179,12 @@ class MyDump(BaseShell):
                             cursor.execute(f"SHOW CREATE TABLE `{database}`.`{table}`")
                             create_table_sql = cursor.fetchone()[1]
 
+                            # 确保有分号结尾
+                            create_table_sql = create_table_sql.rstrip(';') + ';'
+
                             # 添加ROW_FORMAT=DYNAMIC（如果不存在）
                             if 'ROW_FORMAT=' not in create_table_sql.upper():
-                                if create_table_sql.endswith(';'):
-                                    create_table_sql = create_table_sql[:-1]
+                                create_table_sql = create_table_sql.rstrip(';')
                                 create_table_sql += " ROW_FORMAT=DYNAMIC;"
 
                             f.write(create_table_sql + "\n\n")
