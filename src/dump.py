@@ -167,7 +167,7 @@ class MyDump(BaseShell):
                     with open(dump_file, 'w', encoding='utf-8') as f:
                         # 写入数据库结构
                         f.write(f"DROP DATABASE IF EXISTS `{database}`;\n")
-                        f.write(f"CREATE DATABASE IF NOT EXISTS `{database}`;\n")
+                        f.write(f"CREATE DATABASE `{database}`;\n")
                         f.write(f"USE `{database}`;\n\n")
 
                         # 为每个表生成DROP和CREATE语句
