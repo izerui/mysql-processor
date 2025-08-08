@@ -121,12 +121,12 @@ class MyRestore(BaseShell):
         try:
             start_time = time.time()
 
-            success = self._execute_import(structure_file, database, is_structure_file=True)
+            success, output = self._execute_import(structure_file, database, is_structure_file=True)
 
             if success:
                 return True
             else:
-                logger.error(f"数据库结构导入失败 - 数据库: {database}")
+                logger.error(f"数据库结构导入失败 - 数据库: {database}, 错误: {output}")
                 return False
 
         except Exception as e:
@@ -291,13 +291,13 @@ class MyRestore(BaseShell):
             file_size = os.path.getsize(sql_file)
             file_size_mb = file_size / 1024 / 1024
 
-            success = self._execute_import(sql_file, database, is_structure_file=False)
+            success, output = self._execute_import(sql_file, database, is_structure_file=False)
 
             return {
                 'success': success,
                 'duration': time.time() - start_time,
                 'size_mb': file_size_mb,
-                'error': None if success else "导入执行失败"
+                'error': None if success else output
             }
 
         except Exception as e:
@@ -308,7 +308,7 @@ class MyRestore(BaseShell):
                 'error': str(e)
             }
 
-    def _execute_import(self, sql_file: str, database: str, is_structure_file: bool = False) -> bool:
+    def _execute_import(self, sql_file: str, database: str, is_structure_file: bool = False) -> tuple[bool, str]:
         """
         执行单个SQL文件的导入
 
@@ -361,7 +361,6 @@ class MyRestore(BaseShell):
                     "SET foreign_key_checks=0",
                     "SET unique_checks=0",
                     "SET SESSION innodb_lock_wait_timeout=1800",
-                    "SET SESSION bulk_insert_buffer_size = 536870912",
                 ]
                 init_command_str = ";".join(init_commands)
                 cmd = f'{base_cmd} --init-command="{init_command_str}" {database}'
@@ -374,12 +373,12 @@ class MyRestore(BaseShell):
             )
 
             if success:
-                return True
+                return True, ""
             else:
                 error_msg = "\n".join([line for line in output if line.strip()])
                 logger.error(f"MySQL导入失败 - exit_code: {exit_code}, 错误: {error_msg}")
-                return False
+                return False, error_msg
 
         except Exception as e:
             logger.error(f"导入执行异常: {str(e)}")
-            return False
+            return False, str(e)
