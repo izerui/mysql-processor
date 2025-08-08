@@ -353,14 +353,21 @@ class MyRestore(BaseShell):
                 "SET SESSION innodb_lock_wait_timeout=1800",
             ]
 
-            init_command_str = ";".join(init_commands)
-
             # 根据文件类型构建命令
             if is_structure_file:
+                init_commands = [
+                    "SET foreign_key_checks=0",
+                ]
                 # 结构文件：不指定数据库，让SQL文件中的CREATE DATABASE生效
-                cmd = f'{base_cmd} --init-command="{init_command_str}"'
+                cmd = f'{base_cmd} --init-command="{";".join(init_commands)}"'
             else:
-                cmd = f'{base_cmd} --init-command="{init_command_str}" {database}'
+                init_commands = [
+                    "SET autocommit=0",
+                    "SET foreign_key_checks=0",
+                    "SET unique_checks=0",
+                    "SET SESSION innodb_lock_wait_timeout=1800",
+                ]
+                cmd = f'{base_cmd} --init-command="{";".join(init_commands)}" {database}'
 
             import_command = f'{cmd} < "{sql_file}"'
 
