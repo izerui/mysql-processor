@@ -65,6 +65,7 @@ def load_config() -> Dict[str, Any]:
         'export_threads': config.getint('global', 'export_threads', fallback=8),
         'import_threads': config.getint('global', 'import_threads', fallback=8),
         'split_threshold_mb': config.getint('global', 'split_threshold', fallback=500),
+        'commit_frequency': config.getint('global', 'commit_frequency', fallback=50),
         'do_export': config.getboolean('global', 'do_export', fallback=True),
         'source': {
             'host': config.get('source', 'db_host'),
@@ -96,8 +97,8 @@ def cleanup_dump_folder(dump_folder: Path) -> None:
 
 def process_single_database(db: str,
                             source: Dict[str, str], target: Dict[str, str],
-                            dump_folder: Path, delete_after_import: bool,
-                            export_threads: int = 8, import_threads: int = 8, split_threshold_mb: int = 500, do_export: bool = True) -> Dict[str, Any]:
+                            dump_folder, delete_after_import: bool,
+                            export_threads: int = 8, import_threads: int = 8, split_threshold_mb: int = 500, commit_frequency: int = 50, do_export: bool = True) -> Dict[str, Any]:
     """处理单个数据库的完整流程"""
     result = {
         'database': db,
@@ -121,7 +122,7 @@ def process_single_database(db: str,
         export_start = time.time()
 
         if do_export:
-            exporter = MyDump(source_mysql, split_threshold_mb, export_threads)
+            exporter = MyDump(source_mysql, split_threshold_mb, export_threads, commit_frequency)
             export_success = exporter.export_db(db, str(sql_file))
 
             result['export_duration'] = time.time() - export_start
@@ -214,6 +215,7 @@ def main():
             config['export_threads'],
             config['import_threads'],
             config['split_threshold_mb'],
+            config['commit_frequency'],
             config['do_export']
         )
 

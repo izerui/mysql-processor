@@ -50,7 +50,7 @@ class MyDump(BaseShell):
     4. 添加必要的SQL头尾信息
     """
 
-    def __init__(self, mysql: Mysql, split_threshold_mb: int = 500, threads: int = 8):
+    def __init__(self, mysql: Mysql, split_threshold_mb: int = 500, threads: int = 8, commit_frequency: int = 50):
         """
         初始化MyDump实例
 
@@ -58,12 +58,14 @@ class MyDump(BaseShell):
             mysql: MySQL连接配置对象
             split_threshold_mb: 文件拆分阈值（MB），超过此大小的文件会被拆分
             threads: 并发导出线程数
+            commit_frequency: 每多少条INSERT语句后添加commit和start transaction
         """
         super().__init__()
         self.mysql = mysql  # MySQL连接配置
         self.use_pv = self._check_pv_available()  # 检查是否安装了pv工具（进度显示）
         self.split_threshold = split_threshold_mb * 1024 * 1024  # 转换为字节
         self.threads = threads  # 并发线程数
+        self.commit_frequency = commit_frequency  # 每多少条INSERT后添加commit
 
     def _check_pv_available(self):
         """检查pv工具是否可用（用于进度条显示）"""
@@ -455,7 +457,7 @@ class MyDump(BaseShell):
         2. 即时处理：每行数据直接写入目标文件
         3. 文件切换：达到分片大小立即创建新文件
         4. 编码兼容：保留UTF-8/Latin-1处理逻辑
-        5. 事务控制：每50条INSERT后添加commit和start transaction
+        5. 事务控制：根据配置每N条INSERT后添加commit和start transaction
 
         内存控制：
         - 峰值内存 = 64KB缓冲区（与文件大小无关）
@@ -522,8 +524,8 @@ class MyDump(BaseShell):
                     insert_count = 0  # 重置计数器
                     file_counter += 1
 
-                # 每50条INSERT后添加commit和start transaction（文件末尾除外）
-                if insert_count > 0 and insert_count % 50 == 0:
+                # 根据配置每N条INSERT后添加commit和start transaction（文件末尾除外）
+                if insert_count > 0 and insert_count % self.commit_frequency == 0:
                     # 添加commit和start transaction
                     commit_with_newlines = b'\n' + commit_bytes + b'\n'
                     output_handle.write(commit_with_newlines)
@@ -654,8 +656,8 @@ class MyDump(BaseShell):
                     out_f.write('\n' + line)
                     insert_count += 1
 
-                    # 每50条INSERT后添加commit和start transaction（文件末尾除外）
-                    if insert_count % 50 == 0:
+                    # 根据配置每N条INSERT后添加commit和start transaction（文件末尾除外）
+                    if insert_count % self.commit_frequency == 0:
                         out_f.write('\n' + commit_content)
 
                 # 文件末尾只添加footer，不再添加commit

@@ -45,17 +45,17 @@ python src/main.py
 ```ini
 [global]
 # 要迁移的数据库，支持多个
-databases = p3_file_storage,orders,user_center
-# 指定表，*表示所有表
-tables = *
+databases = p3_file_storage,p333
 # 文件拆分阈值，单位MB
 split_threshold = 50
+# 是否执行导出操作：true=执行导出，false=跳过导出直接执行导入
+do_export = true
 # 导入完成后是否删除导出的文件：true=删除，false=保留
 delete_after_import = false
-# 导出并发线程数，用于mydumper的--threads参数
+# 导出并发线程数，用于并发导出
 export_threads = 8
 # 导入线程池数量，用于并发导入SQL文件
-import_threads = 20
+import_threads = 8
 
 [source]
 # 源数据库（可以是任何地方）
