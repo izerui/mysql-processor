@@ -64,8 +64,8 @@ def load_config() -> Dict[str, Any]:
         'delete_after_import': config.getboolean('global', 'delete_after_import', fallback=True),
         'export_threads': config.getint('global', 'export_threads', fallback=8),
         'import_threads': config.getint('global', 'import_threads', fallback=8),
-        'split_threshold_mb': config.getint('global', 'split_threshold', fallback=500),
-        'commit_frequency': config.getint('global', 'commit_frequency', fallback=50),
+        'split_threshold_mb': config.getint('global', 'split_threshold', fallback=200),
+        'commit_frequency': config.getint('global', 'commit_frequency', fallback=100),
         'do_export': config.getboolean('global', 'do_export', fallback=True),
         'source': {
             'host': config.get('source', 'db_host'),

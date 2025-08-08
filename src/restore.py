@@ -347,8 +347,8 @@ class MyRestore(BaseShell):
                 f'--protocol=TCP '
                 f'--compression-algorithms=zlib '
                 f'--default-character-set=utf8mb4 '
-                f'--max-allowed-packet=1024M '
-                f'--net-buffer-length=1048576 '
+                f'--max-allowed-packet=2048M '
+                f'--net-buffer-length=16777216 '
             )
 
             # 根据文件类型构建命令
@@ -362,6 +362,7 @@ class MyRestore(BaseShell):
                     "SET foreign_key_checks=0",
                     "SET unique_checks=0",
                     "SET SESSION innodb_lock_wait_timeout=3600",
+                    "SET SESSION bulk_insert_buffer_size = 536870912",
                 ]
                 init_command_str = ";".join(init_commands)
                 cmd = f'{base_cmd} --init-command="{init_command_str}" {database}'

@@ -157,8 +157,8 @@ class MyDump(BaseShell):
                 f'--skip-lock-tables '  # 不锁表
                 f'--compress '  # 压缩传输
                 f'--skip-tz-utc '  # 不设置时区
-                f'--max-allowed-packet=256M '  # 最大包大小
-                f'--net-buffer-length=1048576 '  # 网络缓冲区大小
+                f'--max-allowed-packet=512M '  # 最大包大小
+                f'--net-buffer-length=16777216 '  # 网络缓冲区大小
                 f'--no-data '  # 关键：不导出数据
                 f'--databases {database}'
             )

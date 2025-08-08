@@ -94,7 +94,7 @@ class StructuredLogger:
         """记录错误"""
         context = kwargs.get('context', None)
         context_str = f" - {context}" if context else ""
-        print(f"{Fore.RED}❌ 错误: {message}{context_str}")
+        print(f"\n{Fore.RED}❌ 错误: {message}{context_str}")
 
     def warning(self, message: str, *args, **kwargs):
         """记录警告"""
