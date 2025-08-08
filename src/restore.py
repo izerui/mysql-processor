@@ -124,7 +124,6 @@ class MyRestore(BaseShell):
             success = self._execute_import(structure_file, database, is_structure_file=True)
 
             if success:
-                elapsed_time = time.time() - start_time
                 return True
             else:
                 logger.error(f"数据库结构导入失败 - 数据库: {database}")

@@ -468,7 +468,7 @@ class MyDump(BaseShell):
         max_bytes = max_size
         file_counter = 1
 
-        header_bytes = '\n'.join(header_lines).encode('utf-8')
+        header_bytes = '\n'.join(header_lines).encode('utf-8').join('\n')
         footer_bytes = '\n'.join(footer_lines).encode('utf-8')
 
         # 计算头尾占用的空间
@@ -617,7 +617,7 @@ class MyDump(BaseShell):
         """
         try:
 
-            header = '\n'.join(header_lines)
+            header = '\n'.join(header_lines).join("\n")
             footer = '\n'.join(footer_lines)
 
             # 使用临时文件方式处理，避免数据丢失
