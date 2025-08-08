@@ -34,7 +34,7 @@ docker run -d \
 ### 方式2：本地运行
 ```bash
 # 1. 克隆项目
-git clone <your-repo-url>
+git clone https://github.com/izerui/mysql-processor.git
 cd mysql-processor
 
 # 2. 安装依赖
