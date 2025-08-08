@@ -92,7 +92,7 @@ class MySQLDownloader:
             # 下载文件
             with open(destination, 'wb') as file:
                 if total_size > 0:
-                    with tqdm(total=total_size, unit='B', unit_scale=True, desc="下载进度", dynamic_ncols=True, disable=False, file=sys.stdout, ascii=True) as pbar:
+                    with tqdm(total=total_size, unit='B', unit_scale=True, desc="下载进度", dynamic_ncols=True, disable=False, file=sys.stdout, ascii=True, miniters=1, mininterval=0.1, position=0, leave=True) as pbar:
                         for chunk in response.iter_content(chunk_size=8192):
                             if chunk:
                                 file.write(chunk)

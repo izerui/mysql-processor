@@ -191,7 +191,11 @@ class MyRestore(BaseShell):
             dynamic_ncols=True,  # 自动调整宽度
             disable=False,
             file=sys.stdout,
-            ascii=True
+            ascii=True,
+            miniters=1,
+            mininterval=0.1,
+            position=0,
+            leave=True
         ) as pbar:
 
             # 进度更新回调函数

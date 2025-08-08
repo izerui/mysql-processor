@@ -206,7 +206,7 @@ class MyDump(BaseShell):
         # 使用tqdm显示进度条
         with tqdm(total=len(tables), desc=f"{Fore.MAGENTA}📊 并行[{self.threads}]导出 {database} 表数据", unit="表",
                   dynamic_ncols=True, disable=False,
-                  file=sys.stdout, ascii=True) as pbar:
+                  file=sys.stdout, ascii=True, miniters=1, mininterval=0.1, position=0, leave=True) as pbar:
             def update_progress(result, table_name):
                 """更新进度条显示"""
                 nonlocal exported_total_size
