@@ -111,13 +111,14 @@ class MyDump(BaseShell):
 
     def _export_structure(self, database: str, dump_file: str) -> bool:
         """
-        导出数据库结构（不包含数据）
+        使用pymysql导出数据库结构（不包含数据）
 
         导出的结构包括：
-        - 数据库创建语句
-        - 所有表的CREATE TABLE语句
-        - 索引定义
-        - 约束定义
+        1. DROP DATABASE IF EXISTS `database`
+        2. CREATE DATABASE /*!32312 IF NOT EXISTS*/ `database`
+        3. USE `database`
+        4. 所有表的DROP TABLE IF EXISTS语句
+        5. 所有表的CREATE TABLE语句（通过show create table生成）
 
         Args:
             database: 数据库名称
@@ -127,37 +128,44 @@ class MyDump(BaseShell):
             bool: 导出成功返回True，失败返回False
         """
         try:
+            import pymysql
 
-            mysql_dump_exe = self.get_mysqldump_exe()
-            mysql_bin_dir = self.get_mysql_bin_dir()
-
-            # 构建mysqldump命令，只导出结构
-            cmd = (
-                f'{mysql_dump_exe} '
-                f'-h {self.mysql.db_host} '
-                f'-u {self.mysql.db_user} '
-                f'-p\'{self.mysql.db_pass}\' '
-                f'--port={self.mysql.db_port} '
-                f'--ssl-mode=DISABLED '
-                f'--protocol=TCP '
-                f'--default-character-set=utf8 '
-                f'--set-gtid-purged=OFF '
-                f'--skip-routines '  # 如果确实不需要存储过程
-                f'--skip-triggers '  # 如果确实不需要触发器
-                f'--skip-events '
-                f'--skip-set-charset '
-                f'--skip-comments '
-                f'--add-drop-database '
-                f'--skip-tz-utc '
-                f'--no-data '
-                f'--databases {database}'
+            # 连接数据库
+            connection = pymysql.connect(
+                host=self.mysql.db_host,
+                user=self.mysql.db_user,
+                password=self.mysql.db_pass,
+                port=int(self.mysql.db_port),
+                charset='utf8mb4',
+                autocommit=True
             )
 
-            full_command = f'{cmd} > {dump_file}'
-            success, exit_code, output = self._exe_command(full_command, cwd=mysql_bin_dir)
+            try:
+                with connection.cursor() as cursor:
+                    # 获取所有表
+                    cursor.execute(f"SHOW TABLES FROM `{database}`")
+                    tables = [row[0] for row in cursor.fetchall()]
 
-            if not success:
-                raise RuntimeError(f"数据库结构导出失败，exit code: {exit_code}")
+                    with open(dump_file, 'w', encoding='utf-8') as f:
+                        # 写入数据库结构
+                        f.write(f"DROP DATABASE IF EXISTS `{database}`;\n")
+                        f.write(f"CREATE DATABASE IF NOT EXISTS `{database}`;\n")
+                        f.write(f"USE `{database}`;\n\n")
+
+                        # 为每个表生成DROP和CREATE语句
+                        for table in tables:
+                            # DROP TABLE语句
+                            f.write(f"DROP TABLE IF EXISTS `{table}`;\n")
+
+                            # CREATE TABLE语句
+                            cursor.execute(f"SHOW CREATE TABLE `{database}`.`{table}`")
+                            create_table_sql = cursor.fetchone()[1]
+                            f.write(create_table_sql + ";\n\n")
+
+                        logger.info(f"数据库结构导出成功 - 数据库: {database}, 表数量: {len(tables)}")
+
+            finally:
+                connection.close()
 
             return True
 
