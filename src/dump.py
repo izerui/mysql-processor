@@ -1,14 +1,13 @@
+import concurrent.futures
 import os
 import shutil
 import sys
 import time
-import concurrent.futures
-import re
-import configparser
-from typing import List, Optional, Tuple
+from typing import List
 
 from colorama import Fore
 from tqdm import tqdm
+import pymysql
 
 from base import BaseShell, Mysql
 from logger_config import logger
@@ -90,26 +89,45 @@ class MyDump(BaseShell):
             # 确保输出目录存在
             os.makedirs(os.path.dirname(dump_file), exist_ok=True)
 
-            # 第一步：导出数据库结构
-            if not self._export_structure(database, dump_file):
-                return False
-
-            # 第二步：获取数据库的所有表
-            tables = self._get_all_tables(database)
-
+            # 第一步: 获取数据库的所有表
+            tables = self.get_db_tables(database)
             if not tables:
                 logger.warning(f"数据库 {database} 中没有需要导出的表")
                 return True
 
+            # 第二步：导出数据库结构
+            if not self._export_structure(database, tables, dump_file):
+                return False
+
             # 第三步：并发导出表数据
-            success_count = self._export_tables_data(database, dump_file)
+            success_count = self._export_tables_data(database, tables, dump_file)
             return success_count >= 0
 
         except Exception as e:
             logger.error(f"导出过程发生错误 - 数据库: {database}, 错误: {str(e)}")
             return False
 
-    def _export_structure(self, database: str, dump_file: str) -> bool:
+    def get_db_tables(self, database: str) -> List[str]:
+        """获取数据库的所有表"""
+        try:
+            # 连接数据库
+            with pymysql.connect(
+                    host=self.mysql.db_host,
+                    user=self.mysql.db_user,
+                    password=self.mysql.db_pass,
+                    port=int(self.mysql.db_port),
+                    charset='utf8mb4',
+                    autocommit=True
+            ) as conn:
+                cursor = conn.cursor()
+                cursor.execute(f"SHOW TABLES FROM `{database}`")
+                tables = [row[0] for row in cursor.fetchall()]
+                return tables
+        except Exception as e:
+            logger.error(f"获取数据库 {database} 的表列表失败 - 错误: {str(e)}")
+            raise e
+
+    def _export_structure(self, database: str, tables: list[str], dump_file: str) -> bool:
         """
         使用pymysql导出数据库结构（不包含数据）
 
@@ -128,7 +146,6 @@ class MyDump(BaseShell):
             bool: 导出成功返回True，失败返回False
         """
         try:
-            import pymysql
 
             # 连接数据库
             connection = pymysql.connect(
@@ -142,10 +159,6 @@ class MyDump(BaseShell):
 
             try:
                 with connection.cursor() as cursor:
-                    # 获取所有表
-                    cursor.execute(f"SHOW TABLES FROM `{database}`")
-                    tables = [row[0] for row in cursor.fetchall()]
-
                     with open(dump_file, 'w', encoding='utf-8') as f:
                         # 写入数据库结构
                         f.write(f"DROP DATABASE IF EXISTS `{database}`;\n")
@@ -161,19 +174,15 @@ class MyDump(BaseShell):
                             cursor.execute(f"SHOW CREATE TABLE `{database}`.`{table}`")
                             create_table_sql = cursor.fetchone()[1]
                             f.write(create_table_sql + ";\n\n")
-
                     logger.info(f"数据库结构导出成功 - 数据库: {database}, 表数量: {len(tables)}")
-
             finally:
                 connection.close()
-
             return True
-
         except Exception as e:
             logger.error(f"数据库结构导出失败 - 数据库: {database}, 错误: {str(e)}")
             return False
 
-    def _export_tables_data(self, database: str, dump_file: str) -> int:
+    def _export_tables_data(self, database: str, tables: list[str], dump_file: str) -> int:
         """
         并发导出所有表的数据
 
@@ -189,12 +198,6 @@ class MyDump(BaseShell):
         # 为每个数据库创建单独的文件夹存放表数据
         db_folder = os.path.join(os.path.dirname(dump_file), database)
         os.makedirs(db_folder, exist_ok=True)
-
-        # 获取数据库的所有表
-        tables = self._get_all_tables(database)
-        if not tables:
-            logger.warning(f"数据库 {database} 中没有需要导出的表")
-            return 0
 
         success_count = 0
         failed_tables = []
@@ -320,8 +323,8 @@ class MyDump(BaseShell):
                 f'-u {self.mysql.db_user} '
                 f'-p"{self.mysql.db_pass}" '
                 f'--port={self.mysql.db_port} '
-                f'--ssl-mode=DISABLED ' # 如果不需要SSL
-                f'--protocol=TCP ' # 强制使用TCP
+                f'--ssl-mode=DISABLED '  # 如果不需要SSL
+                f'--protocol=TCP '  # 强制使用TCP
                 f'--default-character-set=utf8 '
                 f'--set-gtid-purged=OFF '
                 f'--skip-routines '
@@ -425,7 +428,6 @@ class MyDump(BaseShell):
             List[str]: 表名列表（已排序）
         """
         try:
-            import pymysql
             connection = pymysql.connect(
                 host=self.mysql.db_host,
                 user=self.mysql.db_user,
@@ -504,8 +506,8 @@ class MyDump(BaseShell):
 
                 # 检查是否需要创建新文件（第一个文件或达到大小限制）
                 need_new_file = (
-                    output_handle is None or
-                    (current_size + line_size > effective_max_bytes and current_size > 0)
+                        output_handle is None or
+                        (current_size + line_size > effective_max_bytes and current_size > 0)
                 )
 
                 if need_new_file:
