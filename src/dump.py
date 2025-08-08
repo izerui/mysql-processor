@@ -527,7 +527,7 @@ class MyDump(BaseShell):
                 # 根据配置每N条INSERT后添加commit和start transaction（文件末尾除外）
                 if insert_count > 0 and insert_count % self.commit_frequency == 0:
                     # 添加commit和start transaction
-                    commit_with_newlines = b'\n' + commit_bytes + b'\n'
+                    commit_with_newlines = commit_bytes
                     output_handle.write(commit_with_newlines)
                     current_size += len(commit_with_newlines)
 
@@ -658,7 +658,7 @@ class MyDump(BaseShell):
 
                     # 根据配置每N条INSERT后添加commit和start transaction（文件末尾除外）
                     if insert_count % self.commit_frequency == 0:
-                        out_f.write('\n' + commit_content)
+                        out_f.write(commit_content)
 
                 # 文件末尾只添加footer，不再添加commit
                 out_f.write('\n' + footer)

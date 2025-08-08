@@ -48,6 +48,8 @@ python src/main.py
 databases = p3_file_storage,p333
 # 文件拆分阈值，单位MB
 split_threshold = 50
+# 生成的sql文件每多少行提交一次
+commit_frequency = 10
 # 是否执行导出操作：true=执行导出，false=跳过导出直接执行导入
 do_export = true
 # 导入完成后是否删除导出的文件：true=删除，false=保留
