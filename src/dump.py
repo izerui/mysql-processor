@@ -162,7 +162,7 @@ class MyDump(BaseShell):
                             create_table_sql = cursor.fetchone()[1]
                             f.write(create_table_sql + ";\n\n")
 
-                        logger.info(f"数据库结构导出成功 - 数据库: {database}, 表数量: {len(tables)}")
+                    logger.info(f"数据库结构导出成功 - 数据库: {database}, 表数量: {len(tables)}")
 
             finally:
                 connection.close()
