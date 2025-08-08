@@ -173,7 +173,14 @@ class MyDump(BaseShell):
                             # CREATE TABLE语句
                             cursor.execute(f"SHOW CREATE TABLE `{database}`.`{table}`")
                             create_table_sql = cursor.fetchone()[1]
-                            f.write(create_table_sql + ";\n\n")
+
+                            # 添加ROW_FORMAT=DYNAMIC（如果不存在）
+                            if 'ROW_FORMAT=' not in create_table_sql.upper():
+                                if create_table_sql.endswith(';'):
+                                    create_table_sql = create_table_sql[:-1]
+                                create_table_sql += " ROW_FORMAT=DYNAMIC;"
+
+                            f.write(create_table_sql + "\n\n")
                     logger.info(f"数据库结构导出成功 - 数据库: {database}, 表数量: {len(tables)}")
             finally:
                 connection.close()
