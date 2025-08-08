@@ -455,7 +455,6 @@ class MyDump(BaseShell):
         2. 分块写入：current_lines只保存当前文件内容
         3. 及时释放：写完一个文件立即清空缓存
         4. 编码兼容：保留UTF-8/Latin-1处理逻辑
-        5. 每50行INSERT后添加commit_lines
 
         内存控制：
         - 峰值内存 = 单个文件最大内容 + 64KB缓冲区
@@ -473,15 +472,13 @@ class MyDump(BaseShell):
         max_bytes = max_size
         file_counter = 1
 
-        header_bytes = ('\n'.join(header_lines) + '\n').encode('utf-8')
-        footer_bytes = ('\n'.join(footer_lines) + '\n').encode('utf-8')
-        commit_bytes = ('\n'.join(commit_lines) + '\n').encode('utf-8')
+        header_bytes = '\n'.join(header_lines).join('\n').encode('utf-8')
+        footer_bytes = '\n'.join(footer_lines).encode('utf-8')
 
         # 计算头尾占用的空间
         header_size = len(header_bytes)
         footer_size = len(footer_bytes)
-        commit_size = len(commit_bytes)
-        effective_max_bytes = max_bytes - header_size - footer_size - commit_size
+        effective_max_bytes = max_bytes - header_size - footer_size
 
         try:
             # 流式处理INSERT INTO行，避免内存占用
@@ -490,7 +487,6 @@ class MyDump(BaseShell):
             # 开始拆分文件 - 使用真正的流式处理
             current_lines = []
             current_size = 0
-            insert_count = 0
 
             for line in insert_lines:
                 # 处理每一行 - 保留原有的编码处理逻辑
@@ -517,17 +513,9 @@ class MyDump(BaseShell):
                     file_counter += 1
                     current_lines = []
                     current_size = 0
-                    insert_count = 0
 
                 current_lines.append(byte_line)
                 current_size += line_size
-                insert_count += 1
-
-                # 每50行INSERT后添加commit_lines
-                if insert_count % 50 == 0 and current_lines:
-                    # 添加commit语句（除了最后一个文件的最后一组）
-                    current_lines.append(commit_bytes)
-                    current_size += commit_size
 
             # 写入最后一个文件
             if current_lines:
@@ -624,7 +612,6 @@ class MyDump(BaseShell):
         2. 临时文件方式，保证数据安全
         3. 逐行写入，内存占用恒定
         4. 保持原始编码处理逻辑
-        5. 每50行INSERT后添加commit_lines
 
         Args:
             file_path: SQL文件路径
@@ -633,28 +620,21 @@ class MyDump(BaseShell):
             bool: 处理成功返回True，失败返回False
         """
         try:
+
             header = '\n'.join(header_lines) + "\n"
             footer = '\n'.join(footer_lines) + "\n"
-            commit = '\n'.join(commit_lines) + "\n"
 
             # 使用临时文件方式处理，避免数据丢失
             temp_file = file_path + '.tmp'
 
             # 收集所有INSERT INTO行
-            insert_lines = list(self._iter_insert_lines(file_path))
-            total_lines = len(insert_lines)
+            insert_lines = self._iter_insert_lines(file_path)
 
             # 写入处理后的内容
             with open(temp_file, 'w', encoding='utf-8') as out_f:
                 out_f.write(header)
-
-                for i, line in enumerate(insert_lines):
+                for line in insert_lines:
                     out_f.write('\n' + line)
-
-                    # 每50行INSERT后添加commit_lines（不是最后一行）
-                    if (i + 1) % 50 == 0 and (i + 1) < total_lines:
-                        out_f.write('\n' + commit)
-
                 out_f.write('\n' + footer)
 
             # 原子替换原文件
@@ -663,7 +643,6 @@ class MyDump(BaseShell):
 
         except Exception as e:
             logger.error(f"添加头尾信息时发生错误: {str(e)}")
-            temp_file = file_path + '.tmp'
             if os.path.exists(temp_file):
                 os.remove(temp_file)
             return False
