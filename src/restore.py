@@ -119,16 +119,12 @@ class MyRestore(BaseShell):
             bool: 导入成功返回True，失败返回False
         """
         try:
-            start_time = time.time()
-
             success, output = self._execute_import(structure_file, database, is_structure_file=True)
-
             if success:
                 return True
             else:
                 logger.error(f"数据库结构导入失败 - 数据库: {database}, 错误: {output}")
                 return False
-
         except Exception as e:
             logger.error(f"数据库结构导入失败 - 数据库: {database}, 错误: {str(e)}")
             return False
@@ -186,7 +182,7 @@ class MyRestore(BaseShell):
         # 使用tqdm创建进度条
         with tqdm(
             total=len(data_files),
-            desc=f"{Fore.MAGENTA}📊 并行[{self.threads}]导入 {database} 数据库",
+            desc=f"{Fore.MAGENTA}📊 并行[{self.threads}]导入: [{database}] 数据库",
             unit="文件",
             dynamic_ncols=True,  # 自动调整宽度
             disable=False,
