@@ -468,7 +468,7 @@ class MyDump(BaseShell):
         max_bytes = max_size
         file_counter = 1
 
-        header_bytes = '\n'.join(header_lines).encode('utf-8').join('\n')
+        header_bytes = '\n'.join(header_lines).join('\n').encode('utf-8')
         footer_bytes = '\n'.join(footer_lines).encode('utf-8')
 
         # 计算头尾占用的空间
