@@ -108,7 +108,19 @@ class StructuredLogger:
         """兼容旧logger接口"""
         msg = f"{Fore.GREEN}✅ {str(message)}"
         if total_duration:
-            msg += f" | 耗时: {(time.time() - total_duration):.2f} 秒"
+            duration = time.time() - total_duration
+            # 格式化时间显示
+            if duration >= 3600:  # 大于等于1小时
+                hours = int(duration // 3600)
+                minutes = int((duration % 3600) // 60)
+                time_str = f"{hours}小时{minutes}分钟"
+            elif duration >= 60:  # 大于等于1分钟
+                minutes = int(duration // 60)
+                seconds = int(duration % 60)
+                time_str = f"{minutes}分钟{seconds}秒"
+            else:  # 小于1分钟
+                time_str = f"{duration:.2f}秒"
+            msg += f" | 耗时: {time_str}"
         print(msg)
 
     def setup_logger(self):
@@ -150,13 +162,25 @@ class StructuredLogger:
         success_count = sum(1 for r in results if r.get('status') == 'success')
         failed_count = len(results) - success_count
 
+        # 格式化时间显示
+        if total_duration >= 3600:  # 大于等于1小时
+            hours = int(total_duration // 3600)
+            minutes = int((total_duration % 3600) // 60)
+            time_str = f"{hours}小时{minutes}分钟"
+        elif total_duration >= 60:  # 大于等于1分钟
+            minutes = int(total_duration // 60)
+            seconds = int(total_duration % 60)
+            time_str = f"{minutes}分钟{seconds}秒"
+        else:  # 小于1分钟
+            time_str = f"{total_duration:.2f}秒"
+
         print(f"\n{Fore.CYAN}{'=' * 80}")
         print(f"{Fore.CYAN} 🏆 所有操作完成汇总 🏆")
         print(f"{Fore.CYAN}{'=' * 80}")
         print(f"{Fore.GREEN} ✅ 成功: {success_count} 个数据库")
         if failed_count > 0:
             print(f"{Fore.RED} ❌ 失败: {failed_count} 个数据库")
-        print(f"{Fore.CYAN} ⏰ 总耗时: {total_duration:.2f} 秒")
+        print(f"{Fore.CYAN} ⏰ 总耗时: {time_str}")
         print(f"{Fore.CYAN}{'=' * 80}\n")
 
         # 显示失败详情
