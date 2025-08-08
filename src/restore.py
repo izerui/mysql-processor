@@ -361,7 +361,7 @@ class MyRestore(BaseShell):
                     "SET autocommit=0",
                     "SET foreign_key_checks=0",
                     "SET unique_checks=0",
-                    "SET SESSION innodb_lock_wait_timeout=3600",
+                    "SET SESSION innodb_lock_wait_timeout=1800",
                     "SET SESSION bulk_insert_buffer_size = 536870912",
                 ]
                 init_command_str = ";".join(init_commands)
