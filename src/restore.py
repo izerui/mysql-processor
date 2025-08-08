@@ -341,7 +341,6 @@ class MyRestore(BaseShell):
                 f'--port={self.mysql.db_port} '
                 f'--ssl-mode=DISABLED '
                 f'--protocol=TCP '
-                f'--default-character-set=utf8mb4 '
                 f'--max-allowed-packet=2048M '
                 f'--net-buffer-length=16777216 '
             )
