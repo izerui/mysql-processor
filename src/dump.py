@@ -138,29 +138,18 @@ class MyDump(BaseShell):
                 f'-u {self.mysql.db_user} '
                 f'-p\'{self.mysql.db_pass}\' '
                 f'--port={self.mysql.db_port} '
-                f'--ssl-mode=DISABLED ' # 如果不需要SSL
-                f'--protocol=TCP ' # 强制使用TCP
+                f'--ssl-mode=DISABLED '
+                f'--protocol=TCP '
                 f'--default-character-set=utf8 '
-                f'--set-gtid-purged=OFF '  # 不导出GTID信息
-                f'--skip-routines '  # 跳过存储过程和函数
-                f'--skip-triggers '  # 跳过触发器
-                f'--skip-add-locks '  # 跳过锁表语句
-                f'--disable-keys '  # 禁用外键检查
-                f'--skip-events '  # 跳过事件
-                f'--skip-set-charset '  # 跳过字符集设置
+                f'--set-gtid-purged=OFF '
+                f'--skip-routines '  # 如果确实不需要存储过程
+                f'--skip-triggers '  # 如果确实不需要触发器
+                f'--skip-events '
+                f'--skip-set-charset '
                 f'--skip-comments '
-                f'--add-drop-database '  # 添加删除数据库语句
-                f'--extended-insert '  # 使用扩展插入格式
-                f'--complete-insert '  # 使用完整的列名
-                f'--quick '  # 快速导出，逐行读取
-                f'--no-autocommit '  # 禁用自动提交
-                f'--single-transaction '  # 使用一致性快照
-                f'--skip-lock-tables '  # 不锁表
-                f'--compress '  # 压缩传输
-                f'--skip-tz-utc '  # 不设置时区
-                f'--max-allowed-packet=512M '  # 最大包大小
-                f'--net-buffer-length=16777216 '  # 网络缓冲区大小
-                f'--no-data '  # 关键：不导出数据
+                f'--add-drop-database '
+                f'--skip-tz-utc '
+                f'--no-data '
                 f'--databases {database}'
             )
 
