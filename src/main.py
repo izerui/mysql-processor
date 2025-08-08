@@ -224,7 +224,7 @@ def main():
         # 显示当前数据库处理结果
         if result['status'] == 'success':
             logger.success(
-                f"数据库 {db} 处理完成 - 导出耗时: {result['export_duration']:.1f}s, "
+                f"数据库 [{db}] 处理完成 - 导出耗时: {result['export_duration']:.1f}s, "
                 f"导入耗时: {result['import_duration']:.1f}s, "
                 f"总耗时: {result['export_duration'] + result['import_duration']:.1f}s, "
                 f"处理文件: {result['total_export_size_mb']:.1f}MB"
