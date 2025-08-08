@@ -122,11 +122,11 @@ class MyDump(BaseShell):
             ) as conn:
                 cursor = conn.cursor()
                 cursor.execute("""
-                    SELECT TABLE_NAME
-                    FROM information_schema.TABLES
-                    WHERE TABLE_SCHEMA = %s
-                      AND TABLE_TYPE = 'BASE TABLE'
-                """, (database,))
+                               SELECT TABLE_NAME
+                               FROM information_schema.TABLES
+                               WHERE TABLE_SCHEMA = %s
+                                 AND TABLE_TYPE = 'BASE TABLE'
+                               """, (database,))
                 tables = [row[0] for row in cursor.fetchall()]
                 return tables
         except Exception as e:
@@ -167,6 +167,7 @@ class MyDump(BaseShell):
                 with connection.cursor() as cursor:
                     with open(dump_file, 'w', encoding='utf-8') as f:
                         # 写入数据库结构
+                        f.write(f"SET foreign_key_checks=0;\n")
                         f.write(f"DROP DATABASE IF EXISTS `{database}`;\n")
                         f.write(f"CREATE DATABASE `{database}`;\n")
                         f.write(f"USE `{database}`;\n\n")
@@ -184,7 +185,8 @@ class MyDump(BaseShell):
                             create_table_sql = create_table_sql.rstrip(';')
 
                             # 处理各种ROW_FORMAT变体
-                            row_format_pattern = re.compile(r'ROW_FORMAT\s*=\s*(COMPACT|REDUNDANT|FIXED)', re.IGNORECASE)
+                            row_format_pattern = re.compile(r'ROW_FORMAT\s*=\s*(COMPACT|REDUNDANT|FIXED)',
+                                                            re.IGNORECASE)
                             if row_format_pattern.search(create_table_sql):
                                 # 替换为DYNAMIC
                                 create_table_sql = row_format_pattern.sub('ROW_FORMAT=DYNAMIC', create_table_sql)
