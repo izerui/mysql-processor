@@ -14,6 +14,25 @@ from base import BaseShell, Mysql
 from logger_config import logger
 
 
+# 定义SQL头尾语句
+header_lines = [
+    "set foreign_key_checks = 0;",                          # 禁用外键检查
+    "set unique_checks = 0;",                               # 禁用唯一性检查
+    "set autocommit=0;",                                    # 禁用自动提交
+    # "SET SESSION bulk_insert_buffer_size = 256*1024*1024;"  # 增大批量插入缓冲区
+    # "SET SESSION sql_log_bin = 0;"                          # 关闭binlog（如果不需要复制）
+    "SET SESSION sort_buffer_size = 32*1024*1024;"          # 调整排序缓冲区
+    "START TRANSACTION;"                                    # 开始事务
+    ""
+]
+footer_lines = [
+    "",
+    "commit;",
+    "set foreign_key_checks = 1;",
+    "set unique_checks = 1;"
+    # "SET SESSION sql_log_bin = 1;"
+]
+
 class MyDump(BaseShell):
     """
     MySQL数据库备份导出工具类
@@ -437,25 +456,6 @@ class MyDump(BaseShell):
         max_bytes = max_size
         file_counter = 1
 
-        # 定义SQL头尾语句
-        header_lines = [
-            "set foreign_key_checks = 0;",                          # 禁用外键检查
-            "set unique_checks = 0;",                               # 禁用唯一性检查
-            "set autocommit=0;",                                    # 禁用自动提交
-            # "SET SESSION bulk_insert_buffer_size = 256*1024*1024;"  # 增大批量插入缓冲区
-            # "SET SESSION sql_log_bin = 0;"                          # 关闭binlog（如果不需要复制）
-            "SET SESSION sort_buffer_size = 32*1024*1024;"          # 调整排序缓冲区
-            "START TRANSACTION;"                                    # 开始事务
-            ""
-        ]
-        footer_lines = [
-            "",
-            "commit;",
-            "set foreign_key_checks = 1;",
-            "set unique_checks = 1;"
-            # "SET SESSION sql_log_bin = 1;"
-        ]
-
         header_bytes = '\n'.join(header_lines).encode('utf-8')
         footer_bytes = '\n'.join(footer_lines).encode('utf-8')
 
@@ -604,17 +604,6 @@ class MyDump(BaseShell):
             bool: 处理成功返回True，失败返回False
         """
         try:
-            # 准备头尾内容
-            header_lines = [
-                "set foreign_key_checks = 0;",
-                "set unique_checks = 0;",
-                "set autocommit=0;",
-            ]
-            footer_lines = [
-                "commit;",
-                "set foreign_key_checks = 1;",
-                "set unique_checks = 1;"
-            ]
 
             header = '\n'.join(header_lines)
             footer = '\n'.join(footer_lines)
