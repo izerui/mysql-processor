@@ -70,6 +70,7 @@ def load_config() -> Dict[str, Any]:
         'export_threads': config.getint('global', 'export_threads', fallback=8),
         'import_threads': config.getint('global', 'import_threads', fallback=8),
         'split_threshold_mb': config.getint('global', 'split_threshold', fallback=500),
+        'do_export': config.getboolean('global', 'do_export', fallback=True),
         'source': {
             'host': config.get('source', 'db_host'),
             'port': config.get('source', 'db_port'),
@@ -101,7 +102,7 @@ def cleanup_dump_folder(dump_folder: Path) -> None:
 def process_single_database(db: str,
                             source: Dict[str, str], target: Dict[str, str],
                             dump_folder: Path, delete_after_import: bool,
-                            export_threads: int = 8, import_threads: int = 8, split_threshold_mb: int = 500) -> Dict[str, Any]:
+                            export_threads: int = 8, import_threads: int = 8, split_threshold_mb: int = 500, do_export: bool = True) -> Dict[str, Any]:
     """处理单个数据库的完整流程"""
     result = {
         'database': db,
@@ -124,15 +125,19 @@ def process_single_database(db: str,
         # 导出阶段
         export_start = time.time()
 
-        exporter = MyDump(source_mysql, split_threshold_mb, export_threads)
-        export_success = exporter.export_db(db, str(sql_file))
+        if do_export:
+            exporter = MyDump(source_mysql, split_threshold_mb, export_threads)
+            export_success = exporter.export_db(db, str(sql_file))
 
-        result['export_duration'] = time.time() - export_start
+            result['export_duration'] = time.time() - export_start
 
-        if not export_success:
-            result['status'] = 'failed'
-            result['error'] = '导出失败'
-            return result
+            if not export_success:
+                result['status'] = 'failed'
+                result['error'] = '导出失败'
+                return result
+        else:
+            logger.info(f"跳过导出")
+            result['export_duration'] = 0
 
         # 导入阶段
         import_start = time.time()
@@ -195,8 +200,10 @@ def main():
 
     # 设置导出目录
     dump_folder = Path(__file__).parent.parent / 'dumps'
-    cleanup_dump_folder(dump_folder)
-    dump_folder.mkdir(exist_ok=True)
+    # 清理历史导出目录,如果配置不导出则不清理
+    if config['do_export']:
+        cleanup_dump_folder(dump_folder)
+        dump_folder.mkdir(exist_ok=True)
 
     # 处理所有数据库
     results = []
@@ -211,7 +218,8 @@ def main():
             config['delete_after_import'],
             config['export_threads'],
             config['import_threads'],
-            config['split_threshold_mb']
+            config['split_threshold_mb'],
+            config['do_export']
         )
 
         results.append(result)
