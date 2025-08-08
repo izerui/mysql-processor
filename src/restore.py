@@ -345,19 +345,21 @@ class MyRestore(BaseShell):
                 f'--net-buffer-length=16777216 '
             )
 
+            # 数据文件：指定具体数据库，并添加初始化命令
+            init_commands = [
+                "SET autocommit=0",
+                "SET foreign_key_checks=0",
+                "SET unique_checks=0",
+                "SET SESSION innodb_lock_wait_timeout=1800",
+            ]
+
+            init_command_str = ";".join(init_commands)
+
             # 根据文件类型构建命令
             if is_structure_file:
                 # 结构文件：不指定数据库，让SQL文件中的CREATE DATABASE生效
-                cmd = base_cmd
+                cmd = f'{base_cmd} --init-command="{init_command_str}"'
             else:
-                # 数据文件：指定具体数据库，并添加初始化命令
-                init_commands = [
-                    "SET autocommit=0",
-                    "SET foreign_key_checks=0",
-                    "SET unique_checks=0",
-                    "SET SESSION innodb_lock_wait_timeout=1800",
-                ]
-                init_command_str = ";".join(init_commands)
                 cmd = f'{base_cmd} --init-command="{init_command_str}" {database}'
 
             import_command = f'{cmd} < "{sql_file}"'
