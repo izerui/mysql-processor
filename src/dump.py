@@ -617,8 +617,8 @@ class MyDump(BaseShell):
         """
         try:
 
-            header = '\n'.join(header_lines).join("\n")
-            footer = '\n'.join(footer_lines)
+            header = '\n'.join(header_lines) + "\n"
+            footer = '\n'.join(footer_lines) + "\n"
 
             # 使用临时文件方式处理，避免数据丢失
             temp_file = file_path + '.tmp'
@@ -631,7 +631,7 @@ class MyDump(BaseShell):
                 out_f.write(header)
                 for line in insert_lines:
                     out_f.write('\n' + line)
-                out_f.write('\n' + footer + '\n')
+                out_f.write('\n' + footer)
 
             # 原子替换原文件
             os.replace(temp_file, file_path)
