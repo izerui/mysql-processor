@@ -71,7 +71,7 @@ class MyDump(BaseShell):
         """检查pv工具是否可用（用于进度条显示）"""
         return shutil.which('pv') is not None
 
-    def export_db(self, database: str, dump_file: str):
+    def export_db(self, database: str, dump_file: str, structure_only: bool = False):
         """
         主导出函数：导出整个数据库
 
@@ -79,12 +79,13 @@ class MyDump(BaseShell):
         1. 创建输出目录
         2. 导出数据库结构
         3. 获取所有表列表
-        4. 并发导出每个表的数据
+        4. 并发导出每个表的数据（可选）
         5. 汇总导出结果
 
         Args:
             database: 要导出的数据库名称
             dump_file: 主SQL文件路径（包含结构）
+            structure_only: 是否只导出结构不导出数据
         """
         try:
             # 确保输出目录存在
@@ -100,9 +101,13 @@ class MyDump(BaseShell):
             if not self._export_structure(database, tables, dump_file):
                 return False
 
-            # 第三步：并发导出表数据
-            success_count = self._export_tables_data(database, tables, dump_file)
-            return success_count >= 0
+            # 第三步：并发导出表数据（如果不需要只导出结构）
+            if not structure_only:
+                success_count = self._export_tables_data(database, tables, dump_file)
+                return success_count >= 0
+            else:
+                logger.info(f"跳过数据导出，仅导出数据库结构: {database}")
+                return True
 
         except Exception as e:
             logger.error(f"导出过程发生错误 - 数据库: {database}, 错误: {str(e)}")
@@ -193,7 +198,7 @@ class MyDump(BaseShell):
                             elif not re.search(r'ROW_FORMAT\s*=', create_table_sql, re.IGNORECASE):
                                 # 如果不存在ROW_FORMAT，添加DYNAMIC
                                 # 检查是否包含ENGINE=InnoDB，只在InnoDB引擎添加
-                                if 'ENGINE=InnoDB' in create_table_sql.upper():
+                                if 'INNODB' in create_table_sql.upper():
                                     create_table_sql += " ROW_FORMAT=DYNAMIC"
 
                             create_table_sql += ";"
