@@ -48,3 +48,4 @@ config.ini
 Thumbs.db
 mysql/
 sample/
+logs/
