@@ -15,7 +15,7 @@ data:
     # 是否执行导出操作：true=执行导出，false=跳过导出直接执行导入
     do_export = true
     # 是否只导出数据库结构不包含数据：true=只导出结构，false=导出结构和数据
-    structure_only = true
+    structure_only = false
     # 导入完成后是否删除导出的文件：true=删除，false=保留
     delete_after_import = false
     # 导出并发线程数，用于并发导出
