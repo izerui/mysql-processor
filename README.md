@@ -23,7 +23,10 @@
 cp config.ini.sample config.ini
 # 编辑config.ini填写源和目标数据库信息
 
-# 2. 一键运行
+# 2. 创建dumps目录
+mkdir -p dumps
+
+# 3. 一键运行
 docker run -d \
   --name mysql-migrator \
   -v $(pwd)/config.ini:/app/config.ini:ro \
@@ -37,10 +40,13 @@ docker run -d \
 git clone https://github.com/izerui/mysql-processor.git
 cd mysql-processor
 
-# 2. 安装依赖
-pip install -e .
+# 2. 安装uv
+curl -LsSf https://astral.sh/uv/install.sh | sh
 
-# 3. 运行迁移
+# 3. 安装依赖
+uv sync --dev
+
+# 4. 运行迁移
 python src/main.py
 ```
 
@@ -50,13 +56,15 @@ python src/main.py
 ```ini
 [global]
 # 要迁移的数据库，支持多个
-databases = p3_file_storage,p333
+databases = finance_platform
 # 文件拆分阈值，单位MB
-split_threshold = 50
+split_threshold = 200
 # 生成的sql文件每多少行提交一次
-commit_frequency = 10
+commit_frequency = 100
 # 是否执行导出操作：true=执行导出，false=跳过导出直接执行导入
 do_export = true
+# 是否只导出数据库结构不包含数据：true=只导出结构，false=导出结构和数据
+structure_only = true
 # 导入完成后是否删除导出的文件：true=删除，false=保留
 delete_after_import = false
 # 导出并发线程数，用于并发导出
