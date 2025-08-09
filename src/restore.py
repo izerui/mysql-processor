@@ -118,15 +118,11 @@ class MyRestore(BaseShell):
         Returns:
             bool: 导入成功返回True，失败返回False
         """
-        try:
-            success, output = self._execute_import(structure_file, database, is_structure_file=True)
-            if success:
-                return True
-            else:
-                logger.error(f"数据库结构导入失败 - 数据库: {database}, 错误: {output}")
-                return False
-        except Exception as e:
-            logger.error(f"数据库结构导入失败 - 数据库: {database}, 错误: {str(e)}")
+        success, output = self._execute_import(structure_file, database, is_structure_file=True)
+        if success:
+            return True
+        else:
+            logger.error(f"数据库结构导入失败 - 数据库: {database}, 错误: {output}")
             return False
 
     def _collect_data_files(self, db_data_folder: str) -> List[str]:

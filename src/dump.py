@@ -6,9 +6,9 @@ import sys
 import time
 from typing import List
 
+import pymysql
 from colorama import Fore
 from tqdm import tqdm
-import pymysql
 
 from base import BaseShell, Mysql
 from logger_config import logger
@@ -167,11 +167,11 @@ class MyDump(BaseShell):
                 with connection.cursor() as cursor:
                     with open(dump_file, 'w', encoding='utf-8') as f:
                         # 写入数据库结构
-                        f.write(f"SET foreign_key_checks=0;\n")
                         f.write(f"DROP DATABASE IF EXISTS `{database}`;\n")
                         f.write(f"CREATE DATABASE `{database}`;\n")
-                        f.write(f"USE `{database}`;\n\n")
-
+                        f.write(f"USE `{database}`;\n")
+                        f.write(f"SET foreign_key_checks=0;\n")
+                        f.write(f"START TRANSACTION;\n")
                         # 为每个表生成DROP和CREATE语句
                         for table in tables:
                             # CREATE TABLE语句
@@ -199,6 +199,8 @@ class MyDump(BaseShell):
                             create_table_sql += ";"
 
                             f.write(create_table_sql + "\n\n")
+                        f.write(f"commit;\n")
+                        f.write(f"SET foreign_key_checks=1;\n")
                     logger.info(f"数据库结构导出成功 - 数据库: {database}, 表数量: {len(tables)}")
             finally:
                 connection.close()
