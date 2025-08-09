@@ -10,7 +10,7 @@ do_export = true
 # 是否只导出数据库结构不包含数据：true=只导出结构，false=导出结构和数据
 structure_only = false
 # 导入完成后是否删除导出的文件：true=删除，false=保留
-delete_after_import = false
+delete_after_import = true
 # 导出并发线程数，用于并发导出
 export_threads = 8
 # 导入线程池数量，用于并发导入SQL文件
