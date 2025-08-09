@@ -449,37 +449,6 @@ class MyDump(BaseShell):
                 'original_size_mb': 0
             }
 
-    def _get_all_tables(self, database: str) -> List[str]:
-        """
-        获取数据库中的所有表名
-
-        Args:
-            database: 数据库名称
-
-        Returns:
-            List[str]: 表名列表（已排序）
-        """
-        try:
-            connection = pymysql.connect(
-                host=self.mysql.db_host,
-                user=self.mysql.db_user,
-                password=self.mysql.db_pass,
-                port=int(self.mysql.db_port),
-                database=database,
-                charset='utf8'
-            )
-
-            with connection.cursor() as cursor:
-                cursor.execute("SHOW TABLES")
-                tables = [row[0] for row in cursor.fetchall()]
-
-            connection.close()
-            return sorted(tables)
-
-        except Exception as e:
-            logger.error(f"获取表列表失败 - 数据库: {database}, 错误: {str(e)}")
-            return []
-
     def _split_large_file(self, temp_file: str, base_filename: str, max_size: int):
         """
         使用真正的流式处理拆分大文件，零内存缓存
