@@ -1,9 +1,9 @@
-import logging
 import sys
 import threading
 import time
 from datetime import datetime
 from typing import Optional, Dict
+import os
 
 import colorama
 from colorama import Fore, Back, Style
@@ -73,36 +73,45 @@ class StructuredLogger:
     }
 
     def __init__(self, name: str = "MySQLProcessor"):
-        self.logger = logging.getLogger(name)
+        self.log_file = "logs/stdio.log"
         self.progress_trackers: Dict[str, ProgressTracker] = {}
-        self.setup_logger()
+        # 确保logs目录存在
+        os.makedirs("logs", exist_ok=True)
+
+    def print(self, message: str):
+        """同时输出到控制台和文件"""
+        print(message)
+        # 写入文件（去除颜色代码）
+        clean_message = message.replace(Fore.CYAN, "").replace(Fore.GREEN, "").replace(Fore.YELLOW, "").replace(Fore.RED, "").replace(Fore.MAGENTA, "").replace(Back.RED, "").replace(Back.WHITE, "").replace(Fore.WHITE, "").replace(Style.RESET_ALL, "")
+        with open(self.log_file, "a", encoding="utf-8") as f:
+            f.write(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} | {clean_message}\n")
 
     def cleanup(self, path: str):
         """记录清理操作"""
-        print(f"{Fore.YELLOW}🧹 清理: {path}")
+        self.print(f"{Fore.YELLOW}🧹 清理: {path}")
 
     # 兼容旧接口的方法
     def info(self, message: str, *args, **kwargs):
         """记录信息"""
-        print(f"{Fore.CYAN}ℹ️ {message}")
+        self.print(f"{Fore.CYAN}ℹ️ {message}")
 
     def process(self, message: str, *args, **kwargs):
         """进度信息"""
-        print(f"{Fore.MAGENTA}📊 {message}")
+        self.print(f"{Fore.MAGENTA}📊 {message}")
 
     def error(self, message: str, *args, **kwargs):
         """记录错误"""
         context = kwargs.get('context', None)
         context_str = f" - {context}" if context else ""
-        print(f"\n{Fore.RED}❌ 错误: {message}{context_str}")
+        self.print(f"\n{Fore.RED}❌ 错误: {message}{context_str}")
 
     def warning(self, message: str, *args, **kwargs):
         """记录警告"""
-        print(f"{Fore.YELLOW}⚠️ 警告: {message}")
+        self.print(f"{Fore.YELLOW}⚠️ 警告: {message}")
 
     def debug(self, message: str, *args, **kwargs):
         """兼容旧logger接口"""
-        print(f"{Fore.CYAN}🐛 {str(message)}")
+        self.print(f"{Fore.CYAN}🐛 {str(message)}")
 
     def success(self, message: str, total_duration: float = None):
         """兼容旧logger接口"""
@@ -121,40 +130,21 @@ class StructuredLogger:
             else:  # 小于1分钟
                 time_str = f"{duration:.2f}秒"
             msg += f" | 耗时: {time_str}"
-        print(msg)
+        self.print(msg)
 
-    def setup_logger(self):
-        """设置日志器"""
-        if self.logger.handlers:
-            return
 
-        self.logger.setLevel(logging.INFO)
-
-        # 创建控制台处理器
-        console_handler = logging.StreamHandler(sys.stdout)
-        console_handler.setLevel(logging.INFO)
-
-        # 创建格式化器
-        formatter = logging.Formatter(
-            '%(asctime)s | %(levelname)8s | %(message)s',
-            datefmt='%H:%M:%S'
-        )
-        console_handler.setFormatter(formatter)
-
-        # 添加处理器
-        self.logger.addHandler(console_handler)
 
     def log_system_start(self, databases: list):
         """记录系统启动信息"""
-        print(f"\n{Fore.CYAN}{'=' * 80}")
-        print(f"{Fore.CYAN}🚀 MySQL Processor 启动")
-        print(f"{Fore.CYAN}⏰ 时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-        print(f"{Fore.CYAN}📊 数据库: {len(databases)}个")
-        print(f"{Fore.CYAN}{'=' * 80}\n")
+        self.print(f"\n{Fore.CYAN}{'=' * 80}")
+        self.print(f"{Fore.CYAN}🚀 MySQL Processor 启动")
+        self.print(f"{Fore.CYAN}⏰ 时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+        self.print(f"{Fore.CYAN}📊 数据库: {len(databases)}个")
+        self.print(f"{Fore.CYAN}{'=' * 80}\n")
 
     def log_start(self, message: str):
         """记录数据库操作开始"""
-        print(f"{Fore.CYAN}🚀 {message}")
+        self.print(f"{Fore.CYAN}🚀 {message}")
         return time.time()
 
     def log_summary(self, results: list, total_duration: float):
@@ -174,21 +164,21 @@ class StructuredLogger:
         else:  # 小于1分钟
             time_str = f"{total_duration:.2f}秒"
 
-        print(f"\n{Fore.CYAN}{'=' * 80}")
-        print(f"{Fore.CYAN} 🏆 所有操作完成汇总 🏆")
-        print(f"{Fore.CYAN}{'=' * 80}")
-        print(f"{Fore.GREEN} ✅ 成功: {success_count} 个数据库")
+        self.print(f"\n{Fore.CYAN}{'=' * 80}")
+        self.print(f"{Fore.CYAN} 🏆 所有操作完成汇总 🏆")
+        self.print(f"{Fore.CYAN}{'=' * 80}")
+        self.print(f"{Fore.GREEN} ✅ 成功: {success_count} 个数据库")
         if failed_count > 0:
-            print(f"{Fore.RED} ❌ 失败: {failed_count} 个数据库")
-        print(f"{Fore.CYAN} ⏰ 总耗时: {time_str}")
-        print(f"{Fore.CYAN}{'=' * 80}\n")
+            self.print(f"{Fore.RED} ❌ 失败: {failed_count} 个数据库")
+        self.print(f"{Fore.CYAN} ⏰ 总耗时: {time_str}")
+        self.print(f"{Fore.CYAN}{'=' * 80}\n")
 
         # 显示失败详情
         if failed_count > 0:
-            print(f"\n{Fore.RED}失败详情:")
+            self.print(f"\n{Fore.RED}失败详情:")
             for result in results:
                 if result.get('status') == 'failed':
-                    print(f"{Fore.RED}  - {result.get('database', 'Unknown')}: {result.get('error', 'Unknown error')}")
+                    self.print(f"{Fore.RED}  - {result.get('database', 'Unknown')}: {result.get('error', 'Unknown error')}")
 
 
 # 创建全局日志器实例
