@@ -175,7 +175,7 @@ class MyDump(BaseShell):
                         f.write(f"DROP DATABASE IF EXISTS `{database}`;\n")
                         f.write(f"CREATE DATABASE `{database}`;\n")
                         f.write(f"USE `{database}`;\n")
-                        f.write(f"SET foreign_key_checks=0;\n")
+                        f.write(f"SET SESSION foreign_key_checks=0;\n")
                         f.write(f"START TRANSACTION;\n")
                         # 为每个表生成DROP和CREATE语句
                         for table in tables:
@@ -205,7 +205,7 @@ class MyDump(BaseShell):
 
                             f.write(create_table_sql + "\n\n")
                         f.write(f"commit;\n")
-                        f.write(f"SET foreign_key_checks=1;\n")
+                        f.write(f"SET SESSION foreign_key_checks=1;\n")
                     logger.info(f"数据库结构导出成功 - 数据库: {database}, 表数量: {len(tables)}")
             finally:
                 connection.close()
