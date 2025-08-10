@@ -172,7 +172,7 @@ def process_single_database(db: str,
                 import shutil
                 shutil.rmtree(db_folder)
 
-            logger.info(f"已清理导出文件: {db}")
+            # logger.info(f"已清理导出文件: {db}")
         elif result['status'] == 'success' and not delete_after_import:
             logger.info(f"保留导出文件: {db}")
         else:
