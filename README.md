@@ -182,30 +182,6 @@ docker run -d \
   izerui/mysql-processor:latest
 ```
 
-### Kubernetes部署
-```yaml
-apiVersion: batch/v1
-kind: Job
-metadata:
-  name: mysql-migration-job
-spec:
-  template:
-    spec:
-      containers:
-      - name: mysql-processor
-        image: izerui/mysql-processor:latest
-        volumeMounts:
-        - name: config
-          mountPath: /app/config.ini
-          subPath: config.ini
-      volumes:
-      - name: config
-        configMap:
-          name: mysql-config
-      restartPolicy: OnFailure
-```
-
-
 ## 🌐 支持的数据库
 
 ### 源数据库
