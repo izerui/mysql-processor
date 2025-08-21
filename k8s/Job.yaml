@@ -1,21 +1,20 @@
-apiVersion: apps/v1
-kind: Deployment
+apiVersion: batch/v1
+kind: Job
 metadata:
   name: mysql-processor
   namespace: platform-yunji
   labels:
     app: mysql-processor
 spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app: mysql-processor
+  completions: 1
+  parallelism: 1
+  backoffLimit: 3
   template:
     metadata:
       labels:
         app: mysql-processor
     spec:
-      restartPolicy: Always
+      restartPolicy: Never
       nodeSelector:
         app-type: mysql-processor
       tolerations:

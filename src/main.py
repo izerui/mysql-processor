@@ -243,14 +243,7 @@ def main():
     logger.log_summary(results, total_duration)
 
     # 程序结束
-    logger.info("💤 程序执行完成，进入休眠状态...")
-
-    try:
-        while True:
-            time.sleep(3600)  # 每小时检查一次
-    except KeyboardInterrupt:
-        logger.info("收到退出信号，程序结束")
-        sys.exit(0)
+    logger.info("✅ 程序执行完成")
 
 
 if __name__ == "__main__":
