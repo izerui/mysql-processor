@@ -357,7 +357,7 @@ class MyDump(BaseShell):
                 f'--port={self.mysql.db_port} '
                 f'--ssl-mode=DISABLED '  # 如果不需要SSL
                 f'--protocol=TCP '  # 强制使用TCP
-                f'--default-character-set=utf8 '
+                f'--default-character-set=utf8mb4 '
                 f'--set-gtid-purged=OFF '
                 f'--skip-routines '
                 f'--skip-triggers '
@@ -381,6 +381,7 @@ class MyDump(BaseShell):
                 f'--skip-comments '
                 f'--compact '
                 f'--set-gtid-purged=OFF '
+                f'--hex-blob '
                 f'--quick '
                 f'{database} {table}'
             )

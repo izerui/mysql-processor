@@ -339,6 +339,7 @@ class MyRestore(BaseShell):
                 f'--protocol=TCP '
                 f'--max-allowed-packet=2048M '
                 f'--net-buffer-length=16777216 '
+                f'--default-character-set=utf8mb4 '
             )
 
             # 根据文件类型构建命令
